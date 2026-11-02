@@ -1,10 +1,11 @@
-/* DataLab Demo 0.1 — 界面逻辑、localStorage 进度、事件绑定 */
+/* DataLab Demo 0.1.1 — 界面逻辑、localStorage 进度、抽屉、悬浮操作栏 */
 (function () {
   'use strict';
 
   var DATA = window.DataLabData;
   var DB = window.DataLabDB;
   var JUDGE = window.DataLabJudge;
+  var SYN = window.DataLabSyntax;
 
   var LS_PREFIX = 'datalab.demo01.';
   var STARTER_SQL = 'SELECT * FROM students;';
@@ -25,7 +26,16 @@
     });
   }
 
-  /* ---------- localStorage ---------- */
+  function currentEx() {
+    return DATA.EXERCISES.find(function (e) { return e.id === state.currentId; }) || DATA.EXERCISES[0];
+  }
+
+  function catLabel(key) {
+    var c = DATA.CATEGORIES.find(function (cc) { return cc.key === key; });
+    return c ? c.label : key;
+  }
+
+  /* ---------- localStorage（键保持不变，兼容旧进度） ---------- */
 
   function loadState() {
     try {
@@ -38,10 +48,8 @@
       var rawLast = localStorage.getItem(LS_PREFIX + 'lastRecord');
       if (rawLast) { state.lastRecord = JSON.parse(rawLast) || null; }
     } catch (e) {
-      /* localStorage 不可用或数据损坏时，使用默认状态 */
       state = { currentId: 1, completed: {}, sql: {}, lastRecord: null };
     }
-    // 防止非法题号
     var ids = DATA.EXERCISES.map(function (ex) { return ex.id; });
     if (ids.indexOf(state.currentId) === -1) { state.currentId = ids[0]; }
   }
@@ -69,17 +77,23 @@
   /* ---------- 渲染 ---------- */
 
   function renderExerciseList() {
-    var nav = $('exerciseList');
+    var nav = $('drawerList');
     var html = '';
-    DATA.EXERCISES.forEach(function (ex) {
-      var done = !!state.completed[ex.id];
-      var active = ex.id === state.currentId;
-      html +=
-        '<button class="ex-item' + (active ? ' active' : '') + (done ? ' done' : '') + '" data-id="' + ex.id + '">' +
+    DATA.CATEGORIES.forEach(function (cat) {
+      var items = DATA.EXERCISES.filter(function (ex) { return ex.category === cat.key; });
+      if (!items.length) { return; }
+      html += '<div class="drawer-cat">' + escapeHtml(cat.label) +
+        '<span class="drawer-cat-note">' + escapeHtml(cat.note) + '</span></div>';
+      items.forEach(function (ex) {
+        var done = !!state.completed[ex.id];
+        var active = ex.id === state.currentId;
+        html += '<button class="ex-item' + (active ? ' active' : '') + (done ? ' done' : '') +
+          '" data-id="' + ex.id + '" type="button">' +
           '<span class="ex-badge">' + (done ? '✓' : ex.id) + '</span>' +
           '<span class="ex-info"><span class="ex-title">' + escapeHtml(ex.short) + '</span>' +
           '<span class="ex-diff">' + escapeHtml(ex.difficulty) + '</span></span>' +
-        '</button>';
+          '</button>';
+      });
     });
     nav.innerHTML = html;
   }
@@ -87,14 +101,20 @@
   function updateProgress() {
     var doneCount = DATA.EXERCISES.filter(function (ex) { return !!state.completed[ex.id]; }).length;
     var total = DATA.EXERCISES.length;
-    $('progressText').textContent = doneCount + '/' + total;
-    $('progressFill').style.width = (total ? Math.round(doneCount / total * 100) : 0) + '%';
+    var pct = total ? Math.round(doneCount / total * 100) : 0;
+    $('drawerProgressText').textContent = doneCount + '/' + total;
+    $('drawerProgressFill').style.width = pct + '%';
+
+    var idx = DATA.EXERCISES.findIndex(function (e) { return e.id === state.currentId; });
+    $('fbProgress').textContent = (idx + 1) + ' / ' + total;
+    $('prevBtn').disabled = (idx <= 0);
+    $('nextBtn').disabled = (idx >= total - 1);
   }
 
   function renderTask() {
-    var ex = DATA.EXERCISES.find(function (e) { return e.id === state.currentId; });
-    if (!ex) { return; }
+    var ex = currentEx();
     $('taskTitle').textContent = ex.title;
+    $('taskMeta').textContent = catLabel(ex.category) + ' · ' + ex.difficulty;
     $('taskDesc').innerHTML = ex.desc + '<div class="output-cols">' + escapeHtml(ex.outputCols) + '</div>';
     $('taskHint').innerHTML = ex.hint;
   }
@@ -152,8 +172,7 @@
   }
 
   function renderRunResult(result) {
-    var box = $('runResult');
-    box.innerHTML = '<div class="result-meta">查询成功，返回 ' + result.rows.length + ' 行、' +
+    $('runResult').innerHTML = '<div class="result-meta">查询成功，返回 ' + result.rows.length + ' 行、' +
       result.columns.length + ' 列。</div>' +
       buildTableHtml(result.columns, result.rows, '查询成功，但没有返回任何行');
   }
@@ -182,7 +201,6 @@
         '<div><div class="judge-title">无法自动判定</div>' +
         '<div class="judge-reason">' + escapeHtml(jr.reason) + '</div></div></div>';
     }
-    // 附带展示「你的结果」与「参考结果」
     if (jr.user) {
       box.innerHTML += '<div class="side-result"><h4>你的查询结果</h4>' +
         buildTableHtml(jr.user.columns, jr.user.rows, '无结果') + '</div>';
@@ -195,16 +213,11 @@
 
   function renderLastRecord() {
     var el = $('lastRecord');
-    if (!state.lastRecord) {
-      el.textContent = '暂无练习记录';
-      return;
-    }
+    if (!state.lastRecord) { el.textContent = '上次练习：暂无记录'; return; }
     var ex = DATA.EXERCISES.find(function (e) { return e.id === state.lastRecord.id; });
     var label = ex ? ex.short : ('第 ' + state.lastRecord.id + ' 题');
     var resultLabel = { 'PASS': '✔ 通过', 'FAIL': '✘ 未通过', 'RUN': '▶ 已运行' }[state.lastRecord.result] || state.lastRecord.result;
-    var t = '';
-    try { t = new Date(state.lastRecord.time).toLocaleString('zh-CN', { hour12: false }); } catch (e) { t = ''; }
-    el.textContent = '上次：' + label + ' · ' + resultLabel + (t ? ' · ' + t : '');
+    el.textContent = '上次练习：' + label + ' · ' + resultLabel;
   }
 
   function renderAll() {
@@ -215,19 +228,52 @@
     renderData();
     renderLastRecord();
     $('sqlEditor').value = getSql(state.currentId);
-    // 清空上一题的结果区
     $('runResult').innerHTML = '';
     $('judgeResult').innerHTML = '';
+  }
+
+  /* ---------- 语法速查 ---------- */
+
+  function renderSyntax(filter) {
+    var kw = (filter || '').trim().toLowerCase();
+    var items = SYN.REF.filter(function (r) {
+      if (!kw) { return true; }
+      var hay = (r.kw + ' ' + r.keys.join(' ') + ' ' + r.category + ' ' + r.explain + ' ' + r.syntax + ' ' + r.errors).toLowerCase();
+      return hay.indexOf(kw) !== -1;
+    });
+    var html = '';
+    items.forEach(function (r) {
+      html += '<div class="syn-card">' +
+        '<div class="syn-head"><span class="syn-kw">' + escapeHtml(r.kw) + '</span>' +
+        '<span class="syn-cat">' + escapeHtml(r.category) + '</span></div>' +
+        '<div class="syn-row"><b>说明</b><span>' + escapeHtml(r.explain) + '</span></div>' +
+        '<div class="syn-row"><b>语法</b><pre class="syn-pre">' + escapeHtml(r.syntax) + '</pre></div>' +
+        '<div class="syn-row"><b>示例</b><pre class="syn-pre">' + escapeHtml(r.example) + '</pre></div>' +
+        '<div class="syn-row warn"><b>常见错误</b><span>' + escapeHtml(r.errors) + '</span></div>';
+      if (r.note) {
+        html += '<div class="syn-row dim"><b>差异</b><span>' + escapeHtml(r.note) + '</span></div>';
+      }
+      html += '</div>';
+    });
+    if (!items.length) { html = '<div class="empty">未找到匹配的语法条目。</div>'; }
+    $('syntaxList').innerHTML = html;
   }
 
   /* ---------- 交互 ---------- */
 
   function switchExercise(id) {
     if (id === state.currentId) { return; }
-    saveCurrentSql();                       // 保存上一题输入
+    saveCurrentSql();
     state.currentId = id;
     saveState();
     renderAll();
+    window.scrollTo(0, 0);
+  }
+
+  function navigate(delta) {
+    var idx = DATA.EXERCISES.findIndex(function (e) { return e.id === state.currentId; });
+    var target = DATA.EXERCISES[idx + delta];
+    if (target) { switchExercise(target.id); }
   }
 
   function onRun() {
@@ -242,7 +288,7 @@
       db = DB.freshDb();
       var result = DB.runSelect(db, sql);
       renderRunResult(result);
-      $('judgeResult').innerHTML = '';      // 运行后清空上次判题
+      $('judgeResult').innerHTML = '';
     } catch (e) {
       renderRunError(e.message);
     } finally {
@@ -253,8 +299,7 @@
   function onJudge() {
     var sql = $('sqlEditor').value;
     saveCurrentSql();
-    var ex = DATA.EXERCISES.find(function (e) { return e.id === state.currentId; });
-    if (!ex) { return; }
+    var ex = currentEx();
 
     var jr = JUDGE.judge(ex, sql);
     renderJudgeResult(jr);
@@ -285,7 +330,7 @@
   }
 
   function onCopyChat() {
-    var ex = DATA.EXERCISES.find(function (e) { return e.id === state.currentId; });
+    var ex = currentEx();
     var sql = $('sqlEditor').value;
     var runText = $('runResult').innerText || '(尚未运行)';
     var judgeText = $('judgeResult').innerText || '(尚未判题)';
@@ -293,6 +338,7 @@
     var text = '我正在 DataLab 学习 SQL，遇到一个问题需要帮助。\n\n' +
       '【题目】' + (ex ? ex.title : '') + '\n' +
       '【要求】' + (ex ? ex.desc.replace(/<[^>]+>/g, '') : '') + '\n' +
+      '【要求输出】' + (ex ? ex.outputCols : '') + '\n' +
       '【表结构】students(id, name, gender, age, city, score, class_name)\n\n' +
       '【我的 SQL】\n' + sql + '\n\n' +
       '【运行输出】\n' + runText + '\n\n' +
@@ -324,20 +370,102 @@
     document.body.removeChild(ta);
   }
 
+  /* ---------- 抽屉 ---------- */
+
+  function openDrawer(mask) {
+    mask.classList.remove('hidden');
+    document.body.classList.add('drawer-open');
+  }
+  function closeDrawer(mask) {
+    mask.classList.add('hidden');
+    if (!$('listDrawer').classList.contains('hidden') || !$('syntaxDrawer').classList.contains('hidden')) {
+      return;
+    }
+    document.body.classList.remove('drawer-open');
+  }
+
+  /* ---------- 键盘处理：虚拟键盘弹出时收起悬浮栏 ---------- */
+
+  function setupKeyboardHandling() {
+    var bar = $('floatingBar');
+    var isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+    if (window.visualViewport) {
+      function onViewport() {
+        var vv = window.visualViewport;
+        var keyboardOpen = (window.innerHeight - vv.height) > 120;
+        document.body.classList.toggle('kb-open', keyboardOpen);
+      }
+      window.visualViewport.addEventListener('resize', onViewport);
+      window.visualViewport.addEventListener('scroll', onViewport);
+    } else if (isTouch) {
+      $('sqlEditor').addEventListener('focus', function () { document.body.classList.add('kb-open'); });
+      $('sqlEditor').addEventListener('blur', function () { document.body.classList.remove('kb-open'); });
+    }
+
+    // 触摸设备：聚焦编辑器时让其滚入可视区，避免被键盘遮挡
+    if (isTouch) {
+      $('sqlEditor').addEventListener('focus', function () {
+        var el = $('sqlEditor');
+        setTimeout(function () {
+          if (document.activeElement === el) {
+            try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { /* ignore */ }
+          }
+        }, 300);
+      });
+    }
+  }
+
   /* ---------- 绑定事件 ---------- */
 
   function bindEvents() {
-    $('exerciseList').addEventListener('click', function (e) {
+    // 题目列表抽屉
+    $('drawerList').addEventListener('click', function (e) {
       var btn = e.target.closest('.ex-item');
-      if (btn) { switchExercise(parseInt(btn.getAttribute('data-id'), 10)); }
+      if (btn) {
+        switchExercise(parseInt(btn.getAttribute('data-id'), 10));
+        closeDrawer($('listDrawer'));
+      }
+    });
+    $('listBtn').addEventListener('click', function () { renderExerciseList(); openDrawer($('listDrawer')); });
+    $('listClose').addEventListener('click', function () { closeDrawer($('listDrawer')); });
+    $('listDrawer').addEventListener('click', function (e) {
+      if (e.target === $('listDrawer')) { closeDrawer($('listDrawer')); }
     });
 
+    // 语法速查抽屉
+    $('syntaxBtn').addEventListener('click', function () { renderSyntax(''); openDrawer($('syntaxDrawer')); });
+    $('syntaxClose').addEventListener('click', function () { closeDrawer($('syntaxDrawer')); });
+    $('syntaxDrawer').addEventListener('click', function (e) {
+      if (e.target === $('syntaxDrawer')) { closeDrawer($('syntaxDrawer')); }
+    });
+    var searchTimer = null;
+    $('syntaxSearch').addEventListener('input', function () {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(function () { renderSyntax($('syntaxSearch').value); }, 120);
+    });
+
+    // 悬浮操作栏
+    $('fbRunBtn').addEventListener('click', onRun);
+    $('fbJudgeBtn').addEventListener('click', onJudge);
+    $('prevBtn').addEventListener('click', function () { navigate(-1); });
+    $('nextBtn').addEventListener('click', function () { navigate(1); });
+
+    // 编辑器卡片按钮（与悬浮栏独立绑定，各自单次触发）
     $('runBtn').addEventListener('click', onRun);
     $('judgeBtn').addEventListener('click', onJudge);
     $('resetBtn').addEventListener('click', onReset);
     $('copyChatBtn').addEventListener('click', onCopyChat);
 
-    // 输入时自动保存（轻量防抖）
+    // 数据表折叠
+    $('schemaToggle').addEventListener('click', function () {
+      var body = $('schemaBody');
+      var hidden = body.classList.toggle('hidden');
+      $('schemaToggle').setAttribute('aria-expanded', String(!hidden));
+      $('schemaToggle').querySelector('.chev').textContent = hidden ? '▾' : '▴';
+    });
+
+    // 输入自动保存（轻量防抖）
     var debounceTimer = null;
     $('sqlEditor').addEventListener('input', function () {
       clearTimeout(debounceTimer);
@@ -363,6 +491,14 @@
         $('dataView').classList.toggle('hidden', which !== 'data');
       });
     });
+
+    // Esc 关闭抽屉
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        closeDrawer($('listDrawer'));
+        closeDrawer($('syntaxDrawer'));
+      }
+    });
   }
 
   /* ---------- 启动 ---------- */
@@ -371,15 +507,14 @@
     loadState();
     bindEvents();
     renderAll();
+    setupKeyboardHandling();
 
-    // 注册 Service Worker（PWA 离线缓存，仅在 http/https 下可用）
     if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       try {
-        navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(function () { /* 忽略注册失败 */ });
+        navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(function () { /* 忽略 */ });
       } catch (e) { /* 忽略 */ }
     }
 
-    // 异步加载引擎，就绪后刷新数据面板（示例数据需要引擎）
     DB.load().then(function () {
       renderData();
       var badge = $('engineStatus');

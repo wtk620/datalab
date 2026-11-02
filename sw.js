@@ -1,5 +1,5 @@
-/* DataLab Demo 0.1 — 简单 Service Worker：缓存静态资源，支持离线使用 */
-var CACHE_NAME = 'datalab-demo01-v1';
+/* DataLab Demo 0.1.1 — Service Worker：缓存静态资源，支持离线使用 */
+var CACHE_NAME = 'datalab-demo01-v2';
 var ASSETS = [
   './',
   './index.html',
@@ -8,6 +8,7 @@ var ASSETS = [
   './db.js',
   './judge.js',
   './data.js',
+  './syntax.js',
   './sql-wasm.js',
   './sql-wasm.wasm',
   './manifest.json',

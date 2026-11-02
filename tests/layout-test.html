@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head><meta charset="UTF-8"><title>布局测量</title></head>
+<head><meta charset="UTF-8"><title>布局测量（0.1.1 单列 + 悬浮栏）</title></head>
 <body>
   <pre id="out">测量中…</pre>
   <script>
@@ -15,27 +15,39 @@
       document.body.appendChild(iframe);
 
       iframe.onload = function () {
-        // 等引擎与渲染稳定后测量
         setTimeout(function () {
           try {
             var doc = iframe.contentDocument;
-            var layout = doc.querySelector('.layout');
-            var sidebar = doc.querySelector('.sidebar');
-            var content = doc.querySelector('.content');
-            var cs = doc.defaultView.getComputedStyle(layout);
-            var sb = sidebar.getBoundingClientRect();
-            var ct = content.getBoundingClientRect();
             var out = [];
             out.push('viewport=' + w + 'x' + h);
-            out.push('gridTemplateColumns=' + JSON.stringify(cs.gridTemplateColumns));
-            out.push('sidebar.rect: left=' + Math.round(sb.left) + ' top=' + Math.round(sb.top) + ' w=' + Math.round(sb.width));
-            out.push('content.rect: left=' + Math.round(ct.left) + ' top=' + Math.round(ct.top) + ' w=' + Math.round(ct.width));
-            var sideBySide = ct.left > sb.left + 10;       // content 在 sidebar 右侧
-            var stacked = ct.top > sb.top + sb.height - 5; // content 在 sidebar 下方
-            out.push('sideBySide=' + sideBySide);
-            out.push('stacked=' + stacked);
-            out.push('engineBadge=' + (doc.getElementById('engineStatus') ? doc.getElementById('engineStatus').textContent : '?'));
-            out.push('RESULT=' + (w >= 900 ? (sideBySide ? 'LANDSCAPE_OK' : 'LANDSCAPE_FAIL') : (stacked ? 'NARROW_OK' : 'NARROW_FAIL')));
+
+            var content = doc.querySelector('.content').getBoundingClientRect();
+            out.push('content: left=' + Math.round(content.left) + ' w=' + Math.round(content.width));
+            var centered = Math.abs((w - content.width) / 2 - content.left) < 8;
+            out.push('contentCentered=' + centered);
+
+            // 卡片纵向顺序：题目 → 编辑器 → 数据表 → 结果
+            var task = doc.querySelector('.task-card').getBoundingClientRect();
+            var editor = doc.querySelector('.editor-card').getBoundingClientRect();
+            var schema = doc.querySelector('.schema-card').getBoundingClientRect();
+            var result = doc.querySelector('.result-card').getBoundingClientRect();
+            out.push('order: task.top=' + Math.round(task.top) + ' editor.top=' + Math.round(editor.top) +
+              ' schema.top=' + Math.round(schema.top) + ' result.top=' + Math.round(result.top));
+            var orderOk = task.top < editor.top && editor.top < schema.top && schema.top < result.top;
+            out.push('orderOk=' + orderOk);
+
+            // 数据表默认折叠
+            var collapsed = doc.getElementById('schemaBody').classList.contains('hidden');
+            out.push('schemaCollapsedDefault=' + collapsed);
+
+            // 悬浮栏
+            var fb = doc.getElementById('floatingBar').getBoundingClientRect();
+            out.push('floatingBar: bottom=' + Math.round(fb.bottom) + ' viewportH=' + h);
+            var fbOk = (h - fb.bottom) < 40;
+            out.push('floatingBarAtBottom=' + fbOk);
+
+            var ok = centered && orderOk && collapsed && fbOk;
+            out.push('RESULT=' + (ok ? 'LAYOUT_OK' : 'LAYOUT_FAIL'));
             document.getElementById('out').textContent = out.join('\n');
           } catch (e) {
             document.getElementById('out').textContent = '测量异常: ' + e.message;

@@ -21,76 +21,112 @@
     </div>
     <div class="top-right">
       <span id="engineStatus" class="engine-badge">引擎加载中…</span>
+      <button id="syntaxBtn" class="btn ghost" type="button">语法速查</button>
+      <button id="listBtn" class="btn ghost" type="button">题目列表</button>
       <button id="resetBtn" class="btn ghost" type="button">重置进度</button>
     </div>
   </header>
 
-  <div class="layout">
-    <aside class="sidebar">
-      <div class="progress-box">
-        <div class="progress-label">学习进度 <span id="progressText">0/3</span></div>
-        <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
-      </div>
-
-      <nav id="exerciseList" class="exercise-list" aria-label="课程列表"></nav>
-
-      <div class="sidebar-foot">
-        <div id="lastRecord" class="last-record">暂无练习记录</div>
-        <div class="sync-note">⚠ 本版本尚未实现跨设备同步，进度仅保存在当前浏览器。</div>
-      </div>
-    </aside>
-
-    <main class="content">
-      <section class="card task-card">
+  <main class="content">
+    <!-- 1. 题目介绍 -->
+    <section class="card task-card">
+      <div class="task-head">
         <h2 id="taskTitle" class="task-title">第 1 题</h2>
-        <div id="taskDesc" class="task-desc"></div>
-        <div id="taskHint" class="task-hint"></div>
-      </section>
+        <span id="taskMeta" class="task-meta"></span>
+      </div>
+      <div id="taskDesc" class="task-desc"></div>
+      <div id="taskHint" class="task-hint"></div>
+    </section>
 
-      <section class="card schema-card">
-        <div class="card-head">
-          <h3>数据表</h3>
-          <div class="tabs" role="tablist">
-            <button type="button" data-tab="schema" class="active">表结构</button>
-            <button type="button" data-tab="data">示例数据</button>
-          </div>
+    <!-- 2. SQL 编辑器 -->
+    <section class="card editor-card">
+      <div class="card-head editor-head">
+        <h3>SQL 编辑器</h3>
+        <div class="editor-actions">
+          <button id="copyChatBtn" class="btn ghost-dark" type="button">复制给 ChatGPT</button>
+          <button id="runBtn" class="btn primary" type="button">运行 SQL</button>
+          <button id="judgeBtn" class="btn accent" type="button">提交判题</button>
+        </div>
+      </div>
+      <textarea id="sqlEditor" class="sql-editor" spellcheck="false" autocapitalize="off"
+        autocorrect="off" autocomplete="off" enterkeyhint="go"
+        placeholder="在这里输入 SQL，例如：SELECT * FROM students;"></textarea>
+      <div class="editor-foot">
+        <span>快捷键：<kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>Enter</kbd> 运行</span>
+        <span class="engine-note">引擎：SQLite（WebAssembly）—— 与 MySQL 存在部分语法区别</span>
+      </div>
+    </section>
+
+    <!-- 3. 数据表（默认折叠） -->
+    <section class="card schema-card">
+      <button id="schemaToggle" class="schema-toggle" type="button" aria-expanded="false">
+        <span>数据表：students（查看结构 / 示例数据）</span>
+        <span class="chev">▾</span>
+      </button>
+      <div id="schemaBody" class="schema-body hidden">
+        <div class="tabs" role="tablist">
+          <button type="button" data-tab="schema" class="active">表结构</button>
+          <button type="button" data-tab="data">示例数据</button>
         </div>
         <div id="schemaView" class="tab-panel"></div>
         <div id="dataView" class="tab-panel hidden"></div>
-      </section>
+      </div>
+    </section>
 
-      <section class="card editor-card">
-        <div class="card-head editor-head">
-          <h3>SQL 编辑器</h3>
-          <div class="editor-actions">
-            <button id="runBtn" class="btn primary" type="button">▶ 运行 SQL</button>
-            <button id="judgeBtn" class="btn accent" type="button">提交判题</button>
-            <button id="copyChatBtn" class="btn ghost" type="button">复制给 ChatGPT</button>
-          </div>
-        </div>
-        <textarea id="sqlEditor" class="sql-editor" spellcheck="false" autocapitalize="off"
-          autocorrect="off" autocomplete="off"
-          placeholder="在这里输入 SQL，例如：SELECT * FROM students;"></textarea>
-        <div class="editor-foot">
-          <span>快捷键：<kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>Enter</kbd> 运行</span>
-          <span class="engine-note">引擎：SQLite（WebAssembly）—— 与 MySQL 存在部分语法区别</span>
-        </div>
-      </section>
+    <!-- 4. 查询结果 -->
+    <section class="card result-card">
+      <h3>查询结果</h3>
+      <div id="runResult" class="run-result"></div>
+      <div id="judgeResult" class="judge-result"></div>
+    </section>
+  </main>
 
-      <section class="card result-card">
-        <h3>查询结果</h3>
-        <div id="runResult" class="run-result"></div>
-        <div id="judgeResult" class="judge-result"></div>
-      </section>
-    </main>
+  <!-- 底部悬浮操作栏 -->
+  <div class="floating-bar" id="floatingBar">
+    <button id="prevBtn" class="fb-btn nav" type="button">← 上一题</button>
+    <span id="fbProgress" class="fb-progress">1 / 30</span>
+    <button id="nextBtn" class="fb-btn nav" type="button">下一题 →</button>
+    <div class="fb-spacer"></div>
+    <button id="fbRunBtn" class="fb-btn primary" type="button">运行 SQL</button>
+    <button id="fbJudgeBtn" class="fb-btn accent" type="button">提交判题</button>
   </div>
 
-  <footer class="footer">
-    DataLab Demo 0.1 · 本地 SQLite WebAssembly 引擎 · 数据仅存于当前浏览器，不会上传。
-  </footer>
+  <!-- 题目列表抽屉 -->
+  <div id="listDrawer" class="drawer-mask hidden" aria-hidden="true">
+    <aside class="drawer" role="dialog" aria-label="题目列表">
+      <div class="drawer-head">
+        <h3>题目列表</h3>
+        <button id="listClose" class="drawer-close" type="button" aria-label="关闭">✕</button>
+      </div>
+      <div class="drawer-progress">
+        <div class="progress-label">学习进度 <span id="drawerProgressText">0/30</span></div>
+        <div class="progress-bar"><div id="drawerProgressFill" class="progress-fill"></div></div>
+        <div class="save-status" id="saveStatus">进度已保存在本设备</div>
+        <div id="lastRecord" class="last-record">暂无练习记录</div>
+        <div class="sync-note">说明：当前尚不支持跨设备同步，进度仅保存在本设备浏览器中。</div>
+      </div>
+      <nav id="drawerList" class="drawer-list" aria-label="按分类组织的题目"></nav>
+    </aside>
+  </div>
+
+  <!-- 语法速查抽屉 -->
+  <div id="syntaxDrawer" class="drawer-mask hidden" aria-hidden="true">
+    <aside class="drawer drawer-wide" role="dialog" aria-label="语法速查">
+      <div class="drawer-head">
+        <h3>语法速查</h3>
+        <button id="syntaxClose" class="drawer-close" type="button" aria-label="关闭">✕</button>
+      </div>
+      <div class="syntax-search">
+        <input id="syntaxSearch" type="search" placeholder="搜索关键词，如 WHERE、GROUP BY、排序…" autocomplete="off">
+      </div>
+      <div id="syntaxList" class="drawer-list syntax-list"></div>
+      <div class="syntax-foot">示例均可在当前 students 表上运行；引擎为 SQLite，注意与 MySQL 的语法差异。</div>
+    </aside>
+  </div>
 
   <script src="sql-wasm.js"></script>
   <script src="data.js"></script>
+  <script src="syntax.js"></script>
   <script src="db.js"></script>
   <script src="judge.js"></script>
   <script src="app.js"></script>

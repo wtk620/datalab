@@ -22,9 +22,9 @@
           var cur = w.localStorage.getItem('datalab.demo01.currentExercise');
           var sql = w.localStorage.getItem('datalab.demo01.sql');
           var last = w.localStorage.getItem('datalab.demo01.lastRecord');
-          var progress = w.document.getElementById('progressText').textContent;
-          // 验证：四个 key 均被清除，进度回到 0/3
-          var ok = (done === null && cur === null && sql === null && last === null && progress === '0/3');
+          var progress = w.document.getElementById('drawerProgressText').textContent;
+          // 验证：四个 key 均被清除，进度回到 0/30
+          var ok = (done === null && cur === null && sql === null && last === null && progress === '0/30');
           document.getElementById('out').textContent =
             'done=' + done + ' current=' + cur + ' sql=' + sql + ' last=' + last + ' progress=' + progress +
             ' => ' + (ok ? 'RESET_OK' : 'RESET_FAIL');
