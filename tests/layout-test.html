@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><title>布局测量</title></head>
+<body>
+  <pre id="out">测量中…</pre>
+  <script>
+    (function () {
+      var w = parseInt((location.search.match(/[?&]w=(\d+)/) || [])[1], 10) || 1180;
+      var h = parseInt((location.search.match(/[?&]h=(\d+)/) || [])[1], 10) || 820;
+      var iframe = document.createElement('iframe');
+      iframe.style.width = w + 'px';
+      iframe.style.height = h + 'px';
+      iframe.style.border = '0';
+      iframe.src = '../index.html';
+      document.body.appendChild(iframe);
+
+      iframe.onload = function () {
+        // 等引擎与渲染稳定后测量
+        setTimeout(function () {
+          try {
+            var doc = iframe.contentDocument;
+            var layout = doc.querySelector('.layout');
+            var sidebar = doc.querySelector('.sidebar');
+            var content = doc.querySelector('.content');
+            var cs = doc.defaultView.getComputedStyle(layout);
+            var sb = sidebar.getBoundingClientRect();
+            var ct = content.getBoundingClientRect();
+            var out = [];
+            out.push('viewport=' + w + 'x' + h);
+            out.push('gridTemplateColumns=' + JSON.stringify(cs.gridTemplateColumns));
+            out.push('sidebar.rect: left=' + Math.round(sb.left) + ' top=' + Math.round(sb.top) + ' w=' + Math.round(sb.width));
+            out.push('content.rect: left=' + Math.round(ct.left) + ' top=' + Math.round(ct.top) + ' w=' + Math.round(ct.width));
+            var sideBySide = ct.left > sb.left + 10;       // content 在 sidebar 右侧
+            var stacked = ct.top > sb.top + sb.height - 5; // content 在 sidebar 下方
+            out.push('sideBySide=' + sideBySide);
+            out.push('stacked=' + stacked);
+            out.push('engineBadge=' + (doc.getElementById('engineStatus') ? doc.getElementById('engineStatus').textContent : '?'));
+            out.push('RESULT=' + (w >= 900 ? (sideBySide ? 'LANDSCAPE_OK' : 'LANDSCAPE_FAIL') : (stacked ? 'NARROW_OK' : 'NARROW_FAIL')));
+            document.getElementById('out').textContent = out.join('\n');
+          } catch (e) {
+            document.getElementById('out').textContent = '测量异常: ' + e.message;
+          }
+        }, 2500);
+      };
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><title>reset test</title></head>
+<body>
+  <pre id="out">测试进行中…</pre>
+  <iframe id="f" src="index.html" style="width:100%;height:500px"></iframe>
+  <script>
+    document.getElementById('f').onload = function () {
+      setTimeout(function () {
+        var w = document.getElementById('f').contentWindow;
+        // 写入一组状态
+        w.localStorage.setItem('datalab.demo01.done', JSON.stringify({ 1: true, 2: true, 3: true }));
+        w.localStorage.setItem('datalab.demo01.currentExercise', '3');
+        w.localStorage.setItem('datalab.demo01.sql', JSON.stringify({ 1: 'a', 2: 'b', 3: 'c' }));
+        w.localStorage.setItem('datalab.demo01.lastRecord', JSON.stringify({ id: 1, result: 'PASS', time: 1 }));
+        // 覆盖 confirm 强制确认
+        w.confirm = function () { return true; };
+        // 点击重置按钮
+        w.document.getElementById('resetBtn').click();
+        setTimeout(function () {
+          var done = w.localStorage.getItem('datalab.demo01.done');
+          var cur = w.localStorage.getItem('datalab.demo01.currentExercise');
+          var sql = w.localStorage.getItem('datalab.demo01.sql');
+          var last = w.localStorage.getItem('datalab.demo01.lastRecord');
+          var progress = w.document.getElementById('progressText').textContent;
+          // 验证：四个 key 均被清除，进度回到 0/3
+          var ok = (done === null && cur === null && sql === null && last === null && progress === '0/3');
+          document.getElementById('out').textContent =
+            'done=' + done + ' current=' + cur + ' sql=' + sql + ' last=' + last + ' progress=' + progress +
+            ' => ' + (ok ? 'RESET_OK' : 'RESET_FAIL');
+        }, 600);
+      }, 800);
+    };
+    setTimeout(function () {
+      if (document.getElementById('out').textContent.indexOf('RESET') === -1) {
+        document.getElementById('out').textContent = 'RESET_TIMEOUT';
+      }
+    }, 15000);
+  </script>
+</body>
+</html>

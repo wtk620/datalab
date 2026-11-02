@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><title>SEED</title></head>
+<body>
+  种子页：写入模拟的已保存进度
+  <script>
+    // 模拟「上一次会话」保存的状态：当前在第 2 题，第 1 题已完成
+    localStorage.setItem('datalab.demo01.currentExercise', '2');
+    localStorage.setItem('datalab.demo01.sql', JSON.stringify({
+      1: 'SELECT name, city, score FROM students WHERE score >= 90;',
+      2: 'SELECT name, class_name, score FROM students ORDER BY score DESC LIMIT 5;',
+      3: ''
+    }));
+    localStorage.setItem('datalab.demo01.done', JSON.stringify({ 1: true, 2: false, 3: false }));
+    localStorage.setItem('datalab.demo01.lastRecord', JSON.stringify({
+      id: 1, sql: 'SELECT name, city, score FROM students WHERE score >= 90;',
+      result: 'PASS', time: 1700000000000
+    }));
+    document.body.textContent = 'SEEDED: ' + JSON.stringify(localStorage.getItem('datalab.demo01.done'));
+  </script>
+</body>
+</html>

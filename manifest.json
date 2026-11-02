@@ -1,0 +1,16 @@
+{
+  "name": "DataLab · 交互式 SQL 学习",
+  "short_name": "DataLab",
+  "description": "基于 SQLite WebAssembly 的交互式 SQL 学习平台",
+  "lang": "zh-CN",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0d1b2a",
+  "theme_color": "#1f6feb",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

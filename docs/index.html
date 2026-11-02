@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1f6feb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="DataLab">
+  <meta name="format-detection" content="telephone=no">
+  <title>DataLab · 交互式 SQL 学习</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">DataLab</span>
+      <span class="ver">Demo 0.1</span>
+    </div>
+    <div class="top-right">
+      <span id="engineStatus" class="engine-badge">引擎加载中…</span>
+      <button id="resetBtn" class="btn ghost" type="button">重置进度</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="progress-box">
+        <div class="progress-label">学习进度 <span id="progressText">0/3</span></div>
+        <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
+      </div>
+
+      <nav id="exerciseList" class="exercise-list" aria-label="课程列表"></nav>
+
+      <div class="sidebar-foot">
+        <div id="lastRecord" class="last-record">暂无练习记录</div>
+        <div class="sync-note">⚠ 本版本尚未实现跨设备同步，进度仅保存在当前浏览器。</div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="card task-card">
+        <h2 id="taskTitle" class="task-title">第 1 题</h2>
+        <div id="taskDesc" class="task-desc"></div>
+        <div id="taskHint" class="task-hint"></div>
+      </section>
+
+      <section class="card schema-card">
+        <div class="card-head">
+          <h3>数据表</h3>
+          <div class="tabs" role="tablist">
+            <button type="button" data-tab="schema" class="active">表结构</button>
+            <button type="button" data-tab="data">示例数据</button>
+          </div>
+        </div>
+        <div id="schemaView" class="tab-panel"></div>
+        <div id="dataView" class="tab-panel hidden"></div>
+      </section>
+
+      <section class="card editor-card">
+        <div class="card-head editor-head">
+          <h3>SQL 编辑器</h3>
+          <div class="editor-actions">
+            <button id="runBtn" class="btn primary" type="button">▶ 运行 SQL</button>
+            <button id="judgeBtn" class="btn accent" type="button">提交判题</button>
+            <button id="copyChatBtn" class="btn ghost" type="button">复制给 ChatGPT</button>
+          </div>
+        </div>
+        <textarea id="sqlEditor" class="sql-editor" spellcheck="false" autocapitalize="off"
+          autocorrect="off" autocomplete="off"
+          placeholder="在这里输入 SQL，例如：SELECT * FROM students;"></textarea>
+        <div class="editor-foot">
+          <span>快捷键：<kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>Enter</kbd> 运行</span>
+          <span class="engine-note">引擎：SQLite（WebAssembly）—— 与 MySQL 存在部分语法区别</span>
+        </div>
+      </section>
+
+      <section class="card result-card">
+        <h3>查询结果</h3>
+        <div id="runResult" class="run-result"></div>
+        <div id="judgeResult" class="judge-result"></div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="footer">
+    DataLab Demo 0.1 · 本地 SQLite WebAssembly 引擎 · 数据仅存于当前浏览器，不会上传。
+  </footer>
+
+  <script src="sql-wasm.js"></script>
+  <script src="data.js"></script>
+  <script src="db.js"></script>
+  <script src="judge.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

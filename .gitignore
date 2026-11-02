@@ -1,0 +1,5 @@
+# 忽略 macOS 与本地调试产生的文件，避免误提交到公开仓库
+.DS_Store
+__pycache__/
+*.pyc
+.chrome-profile*

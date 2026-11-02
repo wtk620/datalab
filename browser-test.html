@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>DataLab 浏览器测试</title>
+</head>
+<body>
+  <pre id="out">测试进行中…</pre>
+  <script src="sql-wasm.js"></script>
+  <script src="data.js"></script>
+  <script src="db.js"></script>
+  <script src="judge.js"></script>
+  <script>
+    (function () {
+      var DB = window.DataLabDB, JUDGE = window.DataLabJudge, DATA = window.DataLabData;
+      var lines = [];
+      var pass = 0, fail = 0;
+      function log(name, ok, detail) {
+        var s = (ok ? 'PASS  ' : 'FAIL  ') + name + (detail ? ' —— ' + detail : '');
+        lines.push(s);
+        if (ok) pass++; else fail++;
+      }
+      function getEx(id) { return DATA.EXERCISES.filter(function (e) { return e.id === id; })[0]; }
+      function finish() {
+        lines.push('==== 浏览器测试结果：' + pass + ' PASS / ' + fail + ' FAIL ====');
+        document.getElementById('out').textContent = lines.join('\n');
+        document.title = 'DONE-' + (fail === 0 ? 'ALLPASS' : 'HASFAIL');
+      }
+
+      DB.load().then(function () {
+        log('浏览器中 sql.js 引擎加载成功（真实 WebAssembly）', !!window.initSqlJs && true);
+
+        var db = DB.freshDb();
+        var n = db.exec('SELECT COUNT(*) FROM students;')[0].values[0][0];
+        log('students 表 24 条数据', n === 24, '实际 ' + n);
+        db.close();
+
+        [1, 2, 3].forEach(function (id) {
+          var ex = getEx(id);
+          var jr = JUDGE.judge(ex, ex.refSql);
+          log('第 ' + id + ' 题参考查询判题通过', jr.ok === true, jr.reason);
+        });
+
+        var bad = JUDGE.judge(getEx(1), 'SELECT * FROM students WHERE;');
+        log('错误 SQL 报真实原因', bad.kind === 'error' && bad.reason.length > 10, bad.reason);
+
+        var non = JUDGE.judge(getEx(1), 'DROP TABLE students;');
+        log('非 SELECT 被拒绝', non.kind === 'error', non.reason);
+
+        var d1 = DB.freshDb();
+        var r1 = DB.runSelect(d1, 'SELECT COUNT(*) c FROM students WHERE score >= 90;');
+        var r2 = DB.runSelect(d1, 'SELECT COUNT(*) c FROM students WHERE score >= 95;');
+        d1.close();
+        log('修改 SQL 结果变化', r1.rows[0][0] !== r2.rows[0][0], r1.rows[0][0] + ' vs ' + r2.rows[0][0]);
+
+        // 示例数据面板取数
+        var sample = DB.sampleRows(24);
+        log('示例数据面板可取数', sample.rows.length === 24 && sample.columns.length === 7, sample.rows.length + ' 行');
+
+        finish();
+      }).catch(function (e) {
+        log('引擎加载失败', false, String(e && e.message));
+        finish();
+      });
+    })();
+  </script>
+</body>
+</html>
