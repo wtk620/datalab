@@ -20,6 +20,7 @@ function makeStorage(initial, opts) {
     setItem: function (k, v) {
       this._calls += 1;
       if (o.failSetCall === this._calls) { throw new Error('模拟写入失败(call=' + this._calls + ', key=' + k + ')'); }
+      if (o.failOnKey === k) { throw new Error('模拟写入失败(key=' + k + ')'); }
       store[k] = String(v);
     },
     removeItem: function (k) { delete store[k]; },
@@ -150,6 +151,7 @@ console.log('== 5. 覆盖式恢复（replace）+ 快照 + 数据一致 ==');
   var snapObj = JSON.parse(global.localStorage.getItem(BACKUP.SNAPSHOT_KEY));
   t('持久化快照内容正确', jsonEqual(snapObj.raw, seedState()));
   t('恢复后 done 解析正确', JSON.parse(BACKUP.readRaw()[K.done])['7'] === true);
+  t('成功后恢复日志已清除', BACKUP.hasIncompleteRestore() === false);
 })();
 
 console.log('== 5b. 部分备份 replace：备份缺键绝不删除现有数据 ==');
@@ -204,7 +206,8 @@ console.log('== 7. 无效 JSON 导入：拒绝且原数据保持不变 ==');
 
 console.log('== 8. 多键写入中途失败：整体回滚，不误报成功 ==');
 (function () {
-  setStorage(seedState(), { failSetCall: 4 }); // replace 顺序：1=快照,2=currentExercise,3=sql,4=done(失败),5=lastRecord
+  // replace 写入顺序：1=快照,2=恢复日志,3=currentExercise,4=sql,5=done(失败),6=lastRecord
+  setStorage(seedState(), { failSetCall: 5 });
   var bakRaw = seedState();
   bakRaw[K.currentExercise] = '7';
   bakRaw[K.done] = JSON.stringify({ 7: true });
@@ -214,6 +217,45 @@ console.log('== 8. 多键写入中途失败：整体回滚，不误报成功 =='
   t('已写键被如实报告', r.written.length >= 2 && r.written.indexOf(K.currentExercise) >= 0, JSON.stringify(r.written));
   t('回滚无残留错误', !r.rollbackErrors || r.rollbackErrors.length === 0, JSON.stringify(r.rollbackErrors));
   t('回滚后数据恢复原状', jsonEqual(BACKUP.readRaw(), seedState()), JSON.stringify(BACKUP.readRaw()));
+  t('干净回滚后恢复日志已清除', BACKUP.hasIncompleteRestore() === false);
+})();
+
+console.log('== 8b. 回滚失败：恢复日志残留 → 重启后可检测未完成恢复 ==');
+(function () {
+  // failOnKey=sql：前进写入在 sql 失败；回滚再次写 sql 也失败 → rollbackErrors 非空 → 日志保留
+  setStorage(seedState(), { failOnKey: K.sql });
+  var bakRaw = seedState();
+  bakRaw[K.currentExercise] = '7';
+  bakRaw[K.done] = JSON.stringify({ 7: true });
+  var backup = { format: 'datalab-backup', schemaVersion: 1, raw: bakRaw };
+  var r = BACKUP.applyRestore(backup, { mode: 'replace' });
+  t('恢复返回失败', r.ok === false);
+  t('回滚存在错误', r.rollbackErrors && r.rollbackErrors.indexOf(K.sql) >= 0, JSON.stringify(r.rollbackErrors));
+  t('日志残留（未完成恢复）', BACKUP.hasIncompleteRestore() === true);
+  t('快照仍可读（现场保护）', global.localStorage.getItem(BACKUP.SNAPSHOT_KEY) !== null);
+})();
+
+console.log('== 8c. 恢复前快照恢复现场（restoreSnapshot） ==');
+(function () {
+  setStorage(seedState());
+  var bakRaw = seedState();
+  bakRaw[K.currentExercise] = '9';
+  bakRaw[K.done] = JSON.stringify({ 9: true });
+  var backup = { format: 'datalab-backup', schemaVersion: 1, raw: bakRaw };
+  BACKUP.applyRestore(backup, { mode: 'replace' });   // 成功恢复 → 快照键=seedState
+  t('前置：快照键存在', global.localStorage.getItem(BACKUP.SNAPSHOT_KEY) !== null);
+
+  // 模拟中断后的不完整现场：在同一 storage 上覆盖 4 键 + 写日志键（保留快照键）
+  global.localStorage.setItem(K.currentExercise, '5');
+  global.localStorage.setItem(K.sql, '{}');
+  global.localStorage.removeItem(K.done);
+  global.localStorage.removeItem(K.lastRecord);
+  global.localStorage.setItem(BACKUP.RESTORE_JOURNAL_KEY, JSON.stringify({ at: 'x', mode: 'replace' }));
+
+  var rr = BACKUP.restoreSnapshot();
+  t('restoreSnapshot 成功', rr.ok === true, JSON.stringify(rr));
+  t('快照恢复后 raw 与恢复前一致', jsonEqual(BACKUP.readRaw(), seedState()), JSON.stringify(BACKUP.readRaw()));
+  t('恢复日志被清除', BACKUP.hasIncompleteRestore() === false);
 })();
 
 console.log('== 9. 数据一致性往返（导出 → 破坏 → 恢复 → 字节一致） ==');

@@ -23,8 +23,12 @@
   var KEYS = ['currentExercise', 'sql', 'done', 'lastRecord'];   // 键后缀
   var FULL_KEYS = KEYS.map(function (k) { return PREFIX + k; });
 
-  // 覆盖式恢复前自动保留的「现有数据快照」键（独立前缀，不在 4 键内，也不在重置前缀删除范围内）
+  // 恢复前自动保留的「现有数据快照」键（合并/覆盖均写入；独立前缀，不在 4 键内，也不在重置前缀删除范围内）
   var SNAPSHOT_KEY = 'datalab.backup.restoreSnapshot';
+
+  // 恢复日志键：恢复开始前写入、成功/干净回滚后清除；若残留说明上次恢复中断/回滚失败，
+  // 启动时据此检测「未完成的恢复」并保护现场（与 store.js 共用同一键名）。
+  var RESTORE_JOURNAL_KEY = 'datalab.backup.restoreInProgress';
 
   // 未来积木草稿的独立命名空间（阶段 C 起使用；本阶段只声明，不写入、不读取）
   //   规则：与 0.1.2 的 datalab.demo01.* 完全分离，避免污染旧进度、避免被旧「重置进度」前缀删除误伤。
@@ -264,10 +268,9 @@
     var mode = (opts && opts.mode === 'merge') ? 'merge' : 'replace';
     var snapshot = snapshotCurrent();
 
-    // 覆盖式恢复：先把现有数据快照持久化到独立安全键，作为可解释的撤销依据
-    if (mode === 'replace') {
-      try { lsSet(SNAPSHOT_KEY, JSON.stringify(snapshot)); } catch (e) { /* 快照失败不阻断，但记录 */ }
-    }
+    // 恢复前：持久化现有数据快照（合并/覆盖均写，作为撤销依据）与恢复日志（作为中断检测依据）
+    try { lsSet(SNAPSHOT_KEY, JSON.stringify(snapshot)); } catch (e) { /* 快照失败不阻断，但记录 */ }
+    try { lsSet(RESTORE_JOURNAL_KEY, JSON.stringify({ at: snapshot.at, mode: mode })); } catch (e) { /* 日志失败不阻断 */ }
 
     // 计算每个键的动作：{ skip:true }（备份未包含 → 绝不删除现有数据）或 { write: value|null }
     var plan = {};
@@ -297,6 +300,10 @@
           if (v === null || v === undefined) { lsRemove(k); } else { lsSet(k, v); }
         } catch (e2) { rbErrors.push(k); }
       });
+      // 回滚干净 → 清除日志（无残留中断）；回滚失败 → 保留日志（重启后检测并保护）
+      if (rbErrors.length === 0) {
+        try { lsRemove(RESTORE_JOURNAL_KEY); } catch (e2) { /* ignore */ }
+      }
       return {
         ok: false, mode: mode, written: written,
         reason: '恢复写入失败（已尝试回滚到恢复前状态）：' + e.message,
@@ -304,7 +311,45 @@
       };
     }
 
+    // 成功：清除恢复日志
+    try { lsRemove(RESTORE_JOURNAL_KEY); } catch (e) { /* ignore */ }
     return { ok: true, mode: mode, written: written, snapshot: snapshot };
+  }
+
+  /* ---------- 未完成恢复的检测与现场恢复 ---------- */
+
+  function getRestoreJournal() {
+    var raw = lsGet(RESTORE_JOURNAL_KEY);
+    if (raw === null || raw === '') { return null; }
+    try { return JSON.parse(raw); } catch (e) { return { __raw: raw, __error: e.message }; }
+  }
+
+  function hasIncompleteRestore() {
+    return getRestoreJournal() !== null;
+  }
+
+  // 从恢复前快照恢复现场（用于中断恢复后的自愈/撤销），并清除日志。
+  // 不调用 applyRestore（避免把当前的不完整状态再次覆盖进快照）。
+  function restoreSnapshot() {
+    var snapRaw = lsGet(SNAPSHOT_KEY);
+    if (snapRaw === null || snapRaw === '') { return { ok: false, reason: '没有可恢复的恢复前快照' }; }
+    var snap;
+    try { snap = JSON.parse(snapRaw); } catch (e) { return { ok: false, reason: '快照解析失败' }; }
+    if (!snap || !isPlainObject(snap.raw)) { return { ok: false, reason: '快照结构无效' }; }
+
+    var written = [];
+    try {
+      FULL_KEYS.forEach(function (k) {
+        if (!Object.prototype.hasOwnProperty.call(snap.raw, k)) { return; }
+        var v = snap.raw[k];
+        if (v === null || v === undefined) { lsRemove(k); } else { lsSet(k, v); }
+        written.push(k);
+      });
+    } catch (e) {
+      return { ok: false, reason: '恢复快照失败：' + e.message, written: written };
+    }
+    try { lsRemove(RESTORE_JOURNAL_KEY); } catch (e) { /* ignore */ }
+    return { ok: true, written: written };
   }
 
   /* ---------- 浏览器辅助：下载 / 复制（只读，不改 localStorage） ---------- */
@@ -365,6 +410,7 @@
     KEYS: KEYS,
     FULL_KEYS: FULL_KEYS,
     SNAPSHOT_KEY: SNAPSHOT_KEY,
+    RESTORE_JOURNAL_KEY: RESTORE_JOURNAL_KEY,
     // 未来积木草稿命名空间（本阶段只声明）
     BLOCK_PREFIX: BLOCK_PREFIX,
     BLOCK_KEYS: BLOCK_KEYS,
@@ -377,6 +423,9 @@
     previewRestore: previewRestore,
     snapshotCurrent: snapshotCurrent,
     applyRestore: applyRestore,
+    getRestoreJournal: getRestoreJournal,
+    hasIncompleteRestore: hasIncompleteRestore,
+    restoreSnapshot: restoreSnapshot,
     mergeKey: mergeKey,
     toJsonText: toJsonText,
     defaultFilename: defaultFilename,
