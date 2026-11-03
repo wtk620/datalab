@@ -243,6 +243,36 @@ async function main() {
   chk('积木判题通过', await c.evaluate(`(document.getElementById('judgeResult').innerText||'').indexOf('判题通过') >= 0`));
   chk('完成状态与手写共用', await c.evaluate(`window.DataLabStore && (function(){var d=JSON.parse(localStorage.getItem('datalab.demo01.done')||'{}');return d['1']===true;})()`));
 
+  console.log('== 5. 积木草稿持久化：切换/刷新后恢复 + 切题独立 ==');
+  // 在题 1 用积木构造 SELECT * FROM students
+  await c.evaluate(`window.SQLBlocksV4.setBlocks([
+    {id:1,label:'SELECT',sql:'SELECT',type:'keyword'},
+    {id:2,label:'*',sql:'*',type:'operator'},
+    {id:3,label:'FROM',sql:'FROM',type:'keyword'},
+    {id:4,label:'students',sql:'students',type:'field'}
+  ])`);
+  await sleep(300);
+  await c.reload();
+  await sleep(1200);
+  chk('刷新后仍为积木模式', await c.evaluate(`!document.getElementById('blockModeCard').classList.contains('hidden')`));
+  chk('刷新后积木草稿恢复', await c.evaluate(`window.SQLBlocksV4.getSQL() === 'SELECT * FROM students'`), await c.evaluate(`window.SQLBlocksV4.getSQL()`));
+
+  // 切到题 2（默认手写模式），切到积木模式后应为空；再回题 1 积木应保留
+  await c.evaluate(`document.getElementById('nextBtn').click()`);
+  await sleep(300);
+  chk('切到题 2 默认手写模式', await c.evaluate(`document.getElementById('blockModeCard').classList.contains('hidden')`));
+  await c.evaluate(`document.getElementById('modeToggleBtn').click()`);
+  await sleep(300);
+  chk('题 2 积木为空', await c.evaluate(`window.SQLBlocksV4.getSQL() === ''`));
+  await c.evaluate(`window.SQLBlocksV4.setBlocks([{id:5,label:'SELECT',sql:'SELECT',type:'keyword'},{id:6,label:'name',sql:'name',type:'field'},{id:7,label:'FROM',sql:'FROM',type:'keyword'},{id:8,label:'students',sql:'students',type:'field'}])`);
+  await sleep(200);
+  await c.evaluate(`document.getElementById('prevBtn').click()`);
+  await sleep(300);
+  chk('切回题 1 积木草稿保留', await c.evaluate(`window.SQLBlocksV4.getSQL() === 'SELECT * FROM students'`), await c.evaluate(`window.SQLBlocksV4.getSQL()`));
+  await c.evaluate(`document.getElementById('nextBtn').click()`);
+  await sleep(300);
+  chk('题 2 独立草稿保留', await c.evaluate(`window.SQLBlocksV4.getSQL() === 'SELECT name FROM students'`));
+
   console.log('');
   const pass = results.filter((r) => r.ok).length;
   const fail = results.length - pass;

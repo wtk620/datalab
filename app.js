@@ -47,7 +47,7 @@
       // 安全存储模块不可用：绝不退回旧版直接读写，也不清空/触碰 localStorage 中的旧数据。
       // 只进入「模块缺失保护」，由横幅提供只读导出抢救 + 刷新修复提示。
       storeLoadFailed = true;
-      state = { currentId: 1, completed: {}, sql: {}, lastRecord: null };
+      state = { currentId: 1, completed: {}, sql: {}, lastRecord: null, blocks: {}, blockMode: {} };
       return;
     }
     storeLoadFailed = false;
@@ -58,6 +58,8 @@
     state.sql = diag.values.sql || {};
     state.completed = diag.values.done || {};
     state.lastRecord = diag.values.lastRecord || null;
+    state.blocks = diag.values.blocks || {};
+    state.blockMode = diag.values.blockMode || {};
 
     // 题目 id 合法性（与旧逻辑一致）
     var ids = DATA.EXERCISES.map(function (ex) { return ex.id; });
@@ -436,7 +438,7 @@
       try { localStorage.removeItem(window.DataLabBackup.RESTORE_JOURNAL_KEY); } catch (e) { /* ignore */ }
       try { localStorage.removeItem(window.DataLabBackup.SNAPSHOT_KEY); } catch (e) { /* ignore */ }
     }
-    state = { currentId: 1, completed: {}, sql: {}, lastRecord: null };
+    state = { currentId: 1, completed: {}, sql: {}, lastRecord: null, blocks: {}, blockMode: {} };
     renderAll();
   }
 

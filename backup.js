@@ -16,26 +16,28 @@
   /* ---------- 常量与版本管理 ---------- */
 
   var FORMAT = 'datalab-backup';            // 备份文件格式标识
-  var SCHEMA_VERSION = 1;                   // 当前备份格式版本（本模块自管，与应用版本解耦）
+  var SCHEMA_VERSION = 2;                   // v1=4 旧键；v2=新增 2 个积木草稿键（旧 v1 备份仍可恢复）
 
-  // 现有 4 个 localStorage 键（保持不变，只读导出；恢复时仅写这 4 键 + 安全快照键）
+  // 4 个旧 localStorage 键（保持不变，只读导出；恢复时写这 4 键 + 安全快照键）
   var PREFIX = 'datalab.demo01.';
   var KEYS = ['currentExercise', 'sql', 'done', 'lastRecord'];   // 键后缀
   var FULL_KEYS = KEYS.map(function (k) { return PREFIX + k; });
 
-  // 恢复前自动保留的「现有数据快照」键（合并/覆盖均写入；独立前缀，不在 4 键内，也不在重置前缀删除范围内）
+  // 恢复前自动保留的「现有数据快照」键（合并/覆盖均写入；独立前缀，不在数据键内，也不在重置前缀删除范围内）
   var SNAPSHOT_KEY = 'datalab.backup.restoreSnapshot';
 
   // 恢复日志键：恢复开始前写入、成功/干净回滚后清除；若残留说明上次恢复中断/回滚失败，
   // 启动时据此检测「未完成的恢复」并保护现场（与 store.js 共用同一键名）。
   var RESTORE_JOURNAL_KEY = 'datalab.backup.restoreInProgress';
 
-  // 未来积木草稿的独立命名空间（阶段 C 起使用；本阶段只声明，不写入、不读取）
-  //   规则：与 0.1.2 的 datalab.demo01.* 完全分离，避免污染旧进度、避免被旧「重置进度」前缀删除误伤。
-  //   版本管理：每个存储值内部采用带版本信封 { v: 1, data: ... }，未来格式变化靠 v 字段迁移，绝不在旧键上改动。
+  // 积木草稿的独立命名空间（阶段 C 起写入）：与 0.1.2 的 datalab.demo01.* 完全分离
   var BLOCK_PREFIX = 'datalab.demo01b.';
   var BLOCK_KEYS = ['blocks', 'inputMode'];
   var BLOCK_DATA_VERSION = 1;
+  var BLOCK_FULL_KEYS = BLOCK_KEYS.map(function (k) { return BLOCK_PREFIX + k; });
+
+  // 备份/恢复涉及的完整键集合（4 旧键 + 2 积木键）
+  var ALL_KEYS = FULL_KEYS.concat(BLOCK_FULL_KEYS);
 
   /* ---------- 环境兼容的 localStorage 访问 ---------- */
 
@@ -84,7 +86,7 @@
 
   function readRaw() {
     var o = {};
-    FULL_KEYS.forEach(function (k) { o[k] = lsGet(k); });
+    ALL_KEYS.forEach(function (k) { o[k] = lsGet(k); });
     return o;
   }
 
@@ -111,7 +113,7 @@
   function parseRawValues(raw) {
     var parsed = {};
     var warnings = [];
-    FULL_KEYS.forEach(function (k) {
+    ALL_KEYS.forEach(function (k) {
       var r = parseOne(k, raw[k]);
       if (r.error) { warnings.push({ key: k, message: r.error }); }
       parsed[k] = r.value;
@@ -189,7 +191,7 @@
     var keys = {};
     var summary = { conflicts: 0, same: 0, onlyCurrent: 0, onlyBackup: 0, bothEmpty: 0 };
 
-    FULL_KEYS.forEach(function (k) {
+    ALL_KEYS.forEach(function (k) {
       var cur = current[k];
       var bak = (backup && backup.raw && Object.prototype.hasOwnProperty.call(backup.raw, k)) ? backup.raw[k] : null;
       var hasCur = cur !== null && cur !== undefined;
@@ -274,7 +276,7 @@
 
     // 计算每个键的动作：{ skip:true }（备份未包含 → 绝不删除现有数据）或 { write: value|null }
     var plan = {};
-    FULL_KEYS.forEach(function (k) {
+    ALL_KEYS.forEach(function (k) {
       var hasBak = backup && backup.raw && Object.prototype.hasOwnProperty.call(backup.raw, k);
       if (!hasBak) { plan[k] = { skip: true }; return; }
       var bakRaw = backup.raw[k];
@@ -285,7 +287,7 @@
     // 写入计划内的键；任一失败则按快照回滚计划内的键，绝不误报成功
     var written = [];
     try {
-      FULL_KEYS.forEach(function (k) {
+      ALL_KEYS.forEach(function (k) {
         if (plan[k].skip) { return; }
         var v = plan[k].write;
         if (v === null || v === undefined) { lsRemove(k); } else { lsSet(k, v); }
@@ -293,7 +295,7 @@
       });
     } catch (e) {
       var rbErrors = [];
-      FULL_KEYS.forEach(function (k) {
+      ALL_KEYS.forEach(function (k) {
         if (plan[k].skip) { return; }
         try {
           var v = snapshot.raw[k];
@@ -339,7 +341,7 @@
 
     var written = [];
     try {
-      FULL_KEYS.forEach(function (k) {
+      ALL_KEYS.forEach(function (k) {
         if (!Object.prototype.hasOwnProperty.call(snap.raw, k)) { return; }
         var v = snap.raw[k];
         if (v === null || v === undefined) { lsRemove(k); } else { lsSet(k, v); }
@@ -403,17 +405,19 @@
   /* ---------- 对外接口 ---------- */
 
   var API = {
-    version: 'backup-0.1.0',
+    version: 'backup-0.2.0',
     FORMAT: FORMAT,
     SCHEMA_VERSION: SCHEMA_VERSION,
     PREFIX: PREFIX,
     KEYS: KEYS,
     FULL_KEYS: FULL_KEYS,
+    ALL_KEYS: ALL_KEYS,
     SNAPSHOT_KEY: SNAPSHOT_KEY,
     RESTORE_JOURNAL_KEY: RESTORE_JOURNAL_KEY,
-    // 未来积木草稿命名空间（本阶段只声明）
+    // 积木草稿命名空间（阶段 C 起写入）
     BLOCK_PREFIX: BLOCK_PREFIX,
     BLOCK_KEYS: BLOCK_KEYS,
+    BLOCK_FULL_KEYS: BLOCK_FULL_KEYS,
     BLOCK_DATA_VERSION: BLOCK_DATA_VERSION,
 
     readRaw: readRaw,

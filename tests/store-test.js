@@ -119,7 +119,7 @@ console.log('== 4. 正常数据：save 字节格式与 0.1.2 一致（无回归�
   t('lastRecord 为空时不写该键', global.localStorage.getItem(P + 'lastRecord') === null);
 })();
 
-console.log('== 5. 保护状态下重置：清空 4 键并退出保护 ==');
+console.log('== 5. 保护状态下重置：清空 6 键并退出保护 ==');
 (function () {
   var corrupt = seedValid();
   corrupt[P + 'done'] = '{ 坏';
@@ -127,10 +127,11 @@ console.log('== 5. 保护状态下重置：清空 4 键并退出保护 ==');
   var d = STORE.diagnose();
   t('重置前处于保护', d.protected === true);
   var r = STORE.reset();
-  t('reset 成功', r.ok === true && r.removed.length === 4, JSON.stringify(r));
-  t('4 键全部清除', global.localStorage.getItem(P + 'done') === null && global.localStorage.getItem(P + 'sql') === null);
+  t('reset 成功', r.ok === true && r.removed.length === 6, JSON.stringify(r.removed));
+  t('4 旧键全部清除', global.localStorage.getItem(P + 'done') === null && global.localStorage.getItem(P + 'sql') === null);
+  t('积木草稿键也被清除', global.localStorage.getItem(STORE.BLOCK_BLOCKS_KEY) === null && global.localStorage.getItem(STORE.BLOCK_MODE_KEY) === null);
   t('reset 后退出保护', STORE.isProtected() === false);
-  t('reset 后可正常保存', STORE.save({ currentId: 1, sql: {}, completed: {}, lastRecord: null }).ok === true);
+  t('reset 后可正常保存', STORE.save({ currentId: 1, sql: {}, completed: {}, lastRecord: null, blocks: {}, blockMode: {} }).ok === true);
 })();
 
 console.log('== 6. 未完成恢复检测（日志键残留） ==');
@@ -143,6 +144,61 @@ console.log('== 6. 未完成恢复检测（日志键残留） ==');
   t('save 被阻断', STORE.save({ currentId: 1, sql: {}, completed: {}, lastRecord: null }).ok === false);
   // 日志键与 backup.js 一致
   t('JOURNAL_KEY 与 backup 一致', STORE.JOURNAL_KEY === BACKUP.RESTORE_JOURNAL_KEY);
+})();
+
+console.log('== 7. 积木草稿与输入模式：正常加载 + 结构校验 + 损坏阻断 ==');
+(function () {
+  var blocksKey = STORE.BLOCK_BLOCKS_KEY;
+  var modeKey = STORE.BLOCK_MODE_KEY;
+  var validBlocks = JSON.stringify({ 1: [{ id: 1, label: 'SELECT', sql: 'SELECT', type: 'keyword' }] });
+  var validMode = JSON.stringify({ 1: 'blocks' });
+
+  // 正常
+  var map = seedValid();
+  map[blocksKey] = validBlocks;
+  map[modeKey] = validMode;
+  setStorage(map);
+  var d = STORE.diagnose();
+  t('积木草稿正常加载不保护', d.protected === false, JSON.stringify(d.issues));
+  t('积木草稿解析正确', d.values.blocks && d.values.blocks['1'][0].label === 'SELECT');
+  t('输入模式解析正确', d.values.blockMode && d.values.blockMode['1'] === 'blocks');
+
+  // save 写入积木草稿与模式
+  setStorage({});
+  STORE.diagnose();
+  var st = { currentId: 1, sql: {}, completed: {}, lastRecord: null, blocks: { 1: [{ id: 1, label: 'WHERE', sql: 'WHERE', type: 'keyword' }] }, blockMode: { 1: 'blocks' } };
+  var r = STORE.save(st);
+  t('save 写入积木草稿键', r.ok && global.localStorage.getItem(blocksKey) === JSON.stringify(st.blocks));
+  t('save 写入输入模式键', global.localStorage.getItem(modeKey) === JSON.stringify(st.blockMode));
+
+  // 积木草稿结构损坏 → 保护 + 保留原始值
+  var bad = seedValid();
+  bad[blocksKey] = JSON.stringify({ 1: [{ id: 'x', label: 1, sql: null, type: 'keyword' }] }); // 结构无效
+  setStorage(bad);
+  var d2 = STORE.diagnose();
+  t('积木结构损坏被检测', d2.protected && d2.issues.some(function (i) { return i.key === blocksKey; }), JSON.stringify(d2.issues));
+  t('积木损坏阻止保存', STORE.save({ currentId: 1, sql: {}, completed: {}, lastRecord: null, blocks: {}, blockMode: {} }).ok === false);
+  t('积木损坏原值保留', global.localStorage.getItem(blocksKey) === bad[blocksKey]);
+
+  // 输入模式非法值 → 保护
+  var badMode = seedValid();
+  badMode[modeKey] = JSON.stringify({ 1: 'magic' });
+  setStorage(badMode);
+  var d3 = STORE.diagnose();
+  t('输入模式非法值被检测', d3.protected && d3.issues.some(function (i) { return i.key === modeKey; }), JSON.stringify(d3.issues));
+
+  // 一键损坏不影响其他键
+  var partial = seedValid();
+  partial[blocksKey] = '{ 坏';
+  setStorage(partial);
+  var d4 = STORE.diagnose();
+  t('积木损坏不影响 done 读取', d4.values.done && d4.values.done['1'] === true);
+})();
+
+console.log('== 8. 积木草稿键与备份命名空间一致 ==');
+(function () {
+  t('BLOCK_BLOCKS_KEY 与 backup 一致', STORE.BLOCK_BLOCKS_KEY === BACKUP.BLOCK_PREFIX + 'blocks');
+  t('BLOCK_MODE_KEY 与 backup 一致', STORE.BLOCK_MODE_KEY === BACKUP.BLOCK_PREFIX + 'inputMode');
 })();
 
 console.log('');

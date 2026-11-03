@@ -1,9 +1,10 @@
-/* DataLab Demo 0.1.2 · 学习进度持久化与安全保护层（阶段 B.1：R2 加固）
+/* DataLab · 学习进度持久化与安全保护层
    职责：
-   - 对 4 个 localStorage 键「逐键独立」读取、解析、类型校验，一键损坏不影响其他键。
+   - 对 4 个旧键（datalab.demo01.*）+ 2 个积木草稿键（datalab.demo01b.*）「逐键独立」读取/解析/类型校验，
+     一键损坏不影响其他键；积木草稿做结构校验。
    - 检测到异常即进入「安全保护状态」：阻断 save/saveSql/reset 之外的持久化写入，保留原始值。
-   - 检测「未完成的恢复」（备份模块写入的恢复日志键），重启后保护现场。
-   - 正常旧版数据完全兼容：save 的字节格式与 0.1.2 原 saveState 一致。
+   - 检测「未完成的恢复」（恢复日志键），重启后保护现场。
+   - 正常旧版数据完全兼容：save 的 4 个旧键字节格式与 0.1.2 原 saveState 一致。
    本模块为纯逻辑（可注入 localStorage），供 app.js 调用，可在 Node 中单测。
 */
 (function () {
@@ -11,9 +12,16 @@
 
   var root = typeof globalThis !== 'undefined' ? globalThis : this;
 
+  // 旧键（0.1.2 起保持不变，不更名）
   var PREFIX = 'datalab.demo01.';
   var KEYS = ['currentExercise', 'sql', 'done', 'lastRecord'];
   var FULL_KEYS = KEYS.map(function (k) { return PREFIX + k; });
+
+  // 积木草稿独立命名空间（阶段 C 起启用，与旧键完全分离）
+  var BLOCK_PREFIX = 'datalab.demo01b.';
+  var BLOCK_KEYS = ['blocks', 'inputMode'];
+  var BLOCK_BLOCKS_KEY = BLOCK_PREFIX + 'blocks';
+  var BLOCK_MODE_KEY = BLOCK_PREFIX + 'inputMode';
 
   // 与 backup.js 共享的「恢复日志」键（backup.js 写入/清除，本模块在启动时读取检测）
   var JOURNAL_KEY = 'datalab.backup.restoreInProgress';
@@ -64,16 +72,60 @@
     return { status: 'ok', value: v, issue: null };
   }
 
+  // 积木结构校验：数组元素必须为 { id:number, label:string, sql:string, type:string }
+  function validateBlockShape(b) {
+    return isPlainObject(b) && typeof b.id === 'number' &&
+      typeof b.label === 'string' && typeof b.sql === 'string' && typeof b.type === 'string';
+  }
+
+  function validateBlocks(raw) {
+    if (raw === null || raw === '') { return { status: 'missing', value: {}, issue: null }; }
+    var v;
+    try { v = JSON.parse(raw); }
+    catch (e) { return { status: 'corrupt', value: {}, issue: { kind: 'parse', message: 'JSON 解析失败' } }; }
+    if (!isPlainObject(v)) {
+      return { status: 'corrupt', value: {}, issue: { kind: 'type', message: '积木草稿应为 JSON 对象（题号→积木数组）' } };
+    }
+    for (var k in v) {
+      if (!Object.prototype.hasOwnProperty.call(v, k)) { continue; }
+      if (!Array.isArray(v[k])) {
+        return { status: 'corrupt', value: {}, issue: { kind: 'type', message: '题 ' + k + ' 的积木草稿应为数组' } };
+      }
+      for (var i = 0; i < v[k].length; i++) {
+        if (!validateBlockShape(v[k][i])) {
+          return { status: 'corrupt', value: {}, issue: { kind: 'type', message: '题 ' + k + ' 第 ' + (i + 1) + ' 个积木结构无效' } };
+        }
+      }
+    }
+    return { status: 'ok', value: v, issue: null };
+  }
+
+  function validateInputMode(raw) {
+    if (raw === null || raw === '') { return { status: 'missing', value: {}, issue: null }; }
+    var v;
+    try { v = JSON.parse(raw); }
+    catch (e) { return { status: 'corrupt', value: {}, issue: { kind: 'parse', message: 'JSON 解析失败' } }; }
+    if (!isPlainObject(v)) {
+      return { status: 'corrupt', value: {}, issue: { kind: 'type', message: '输入模式应为 JSON 对象（题号→text|blocks）' } };
+    }
+    for (var k in v) {
+      if (!Object.prototype.hasOwnProperty.call(v, k)) { continue; }
+      if (v[k] !== 'text' && v[k] !== 'blocks') {
+        return { status: 'corrupt', value: {}, issue: { kind: 'type', message: '题 ' + k + ' 的输入模式应为 text 或 blocks' } };
+      }
+    }
+    return { status: 'ok', value: v, issue: null };
+  }
+
   function validateKey(key, raw, validator, defaultValue) {
-    var read = { ok: true, raw: raw };
-    if (read.ok) {
+    if (raw !== null) {
       var r = validator(raw);
       if (r.status === 'corrupt') {
         return { key: key, status: 'corrupt', value: defaultValue, issue: { key: key, kind: r.issue.kind, message: r.issue.message, raw: raw } };
       }
       return { key: key, status: r.status, value: r.value, issue: null };
     }
-    return { key: key, status: 'corrupt', value: defaultValue, issue: { key: key, kind: 'read', message: read.error, raw: null } };
+    return { key: key, status: 'missing', value: defaultValue, issue: null };
   }
 
   /* ---------- 诊断（启动时调用一次） ---------- */
@@ -85,9 +137,7 @@
 
     var curRaw = lsGet(PREFIX + 'currentExercise');
     raw[PREFIX + 'currentExercise'] = curRaw.raw;
-    var cur = validateKey(PREFIX + 'currentExercise',
-      curRaw.ok ? curRaw.raw : null,
-      validateCurrentExercise, 1);
+    var cur = validateKey(PREFIX + 'currentExercise', curRaw.ok ? curRaw.raw : null, validateCurrentExercise, 1);
     values.currentExercise = cur.value;
     if (cur.issue) { issues.push(cur.issue); }
 
@@ -109,6 +159,18 @@
     values.lastRecord = last.value;
     if (last.issue) { issues.push(last.issue); }
 
+    var blocksRaw = lsGet(BLOCK_BLOCKS_KEY);
+    raw[BLOCK_BLOCKS_KEY] = blocksRaw.raw;
+    var blocks = validateKey(BLOCK_BLOCKS_KEY, blocksRaw.ok ? blocksRaw.raw : null, validateBlocks, {});
+    values.blocks = blocks.value;
+    if (blocks.issue) { issues.push(blocks.issue); }
+
+    var modeRaw = lsGet(BLOCK_MODE_KEY);
+    raw[BLOCK_MODE_KEY] = modeRaw.raw;
+    var mode = validateKey(BLOCK_MODE_KEY, modeRaw.ok ? modeRaw.raw : null, validateInputMode, {});
+    values.blockMode = mode.value;
+    if (mode.issue) { issues.push(mode.issue); }
+
     // 未完成恢复检测：备份模块若写入日志键且未清除，说明上次恢复中途中断/回滚失败
     var j = lsGet(JOURNAL_KEY);
     if (j.ok && j.raw !== null && j.raw !== '') {
@@ -126,7 +188,7 @@
 
   /* ---------- 写入（保护状态下阻断） ---------- */
 
-  // 与 0.1.2 saveState 字节格式一致：currentExercise→字符串、sql/done→JSON、lastRecord 仅非空时写
+  // 4 个旧键字节格式与 0.1.2 原 saveState 一致；另写 2 个积木草稿键
   function save(state) {
     if (_protected) { return { ok: false, reason: 'protected' }; }
     try {
@@ -134,6 +196,8 @@
       lsSet(PREFIX + 'sql', JSON.stringify(state.sql || {}));
       lsSet(PREFIX + 'done', JSON.stringify(state.completed || {}));
       if (state.lastRecord) { lsSet(PREFIX + 'lastRecord', JSON.stringify(state.lastRecord)); }
+      lsSet(BLOCK_BLOCKS_KEY, JSON.stringify(state.blocks || {}));
+      lsSet(BLOCK_MODE_KEY, JSON.stringify(state.blockMode || {}));
     } catch (e) {
       return { ok: false, reason: e.message };
     }
@@ -145,12 +209,13 @@
     return save(state);
   }
 
-  /* ---------- 重置（显式用户操作；清空 4 键并退出保护） ---------- */
+  /* ---------- 重置（显式用户操作；清空 6 键并退出保护） ---------- */
 
   function reset() {
     var removed = [];
     try {
       KEYS.forEach(function (k) { lsRemove(PREFIX + k); removed.push(PREFIX + k); });
+      BLOCK_KEYS.forEach(function (k) { lsRemove(BLOCK_PREFIX + k); removed.push(BLOCK_PREFIX + k); });
     } catch (e) {
       return { ok: false, reason: e.message, removed: removed };
     }
@@ -164,6 +229,10 @@
     PREFIX: PREFIX,
     KEYS: KEYS,
     FULL_KEYS: FULL_KEYS,
+    BLOCK_PREFIX: BLOCK_PREFIX,
+    BLOCK_KEYS: BLOCK_KEYS,
+    BLOCK_BLOCKS_KEY: BLOCK_BLOCKS_KEY,
+    BLOCK_MODE_KEY: BLOCK_MODE_KEY,
     JOURNAL_KEY: JOURNAL_KEY,
     diagnose: diagnose,
     isProtected: isProtected,
@@ -174,7 +243,9 @@
     reset: reset,
     validateCurrentExercise: validateCurrentExercise,
     validateJsonObject: validateJsonObject,
-    validateLastRecord: validateLastRecord
+    validateLastRecord: validateLastRecord,
+    validateBlocks: validateBlocks,
+    validateInputMode: validateInputMode
   };
 
   root.DataLabStore = API;

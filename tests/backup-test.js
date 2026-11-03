@@ -34,11 +34,14 @@ require('../data.js');
 var BACKUP = require('../backup.js');
 
 var P = BACKUP.PREFIX;
+var BP = BACKUP.BLOCK_PREFIX;
 var K = {
   currentExercise: P + 'currentExercise',
   sql: P + 'sql',
   done: P + 'done',
-  lastRecord: P + 'lastRecord'
+  lastRecord: P + 'lastRecord',
+  blocks: BP + 'blocks',
+  inputMode: BP + 'inputMode'
 };
 
 var passed = 0, failed = 0, failures = [];
@@ -53,7 +56,9 @@ function seedState() {
     [K.currentExercise]: '2',
     [K.sql]: JSON.stringify({ 1: 'SELECT name, city, score FROM students WHERE score >= 90;', 2: 'SELECT name, class_name, score FROM students ORDER BY score DESC LIMIT 5;', 3: '' }),
     [K.done]: JSON.stringify({ 1: true, 2: false, 3: false }),
-    [K.lastRecord]: JSON.stringify({ id: 1, sql: 'SELECT * FROM students;', result: 'PASS', time: 1700000000000 })
+    [K.lastRecord]: JSON.stringify({ id: 1, sql: 'SELECT * FROM students;', result: 'PASS', time: 1700000000000 }),
+    [K.blocks]: null,
+    [K.inputMode]: null
   };
 }
 
@@ -66,10 +71,10 @@ console.log('== 1. 导出完整性（格式/版本/时间/应用版本/原始值
   setStorage(seedState());
   var b = BACKUP.exportBackup();
   t('format 正确', b.format === 'datalab-backup', b.format);
-  t('schemaVersion = 1', b.schemaVersion === 1, String(b.schemaVersion));
+  t('schemaVersion = 2', b.schemaVersion === 2, String(b.schemaVersion));
   t('exportedAt 为合法时间', !isNaN(Date.parse(b.exportedAt)), b.exportedAt);
   t('appVersion 读取自 DataLabData = 0.1.2', b.appVersion === '0.1.2', b.appVersion);
-  t('raw 原样保留 4 键', jsonEqual(b.raw, seedState()), JSON.stringify(b.raw));
+  t('raw 原样保留 6 键', jsonEqual(b.raw, seedState()), JSON.stringify(b.raw));
   t('parsed.currentExercise 为数字', b.parsed[K.currentExercise] === 2, String(b.parsed[K.currentExercise]));
   t('parsed.sql 为对象且含 3 个 id', b.parsed[K.sql] && Object.keys(b.parsed[K.sql]).length === 3);
   t('parsed.done 为对象', b.parsed[K.done] && b.parsed[K.done]['1'] === true);
@@ -144,7 +149,7 @@ console.log('== 5. 覆盖式恢复（replace）+ 快照 + 数据一致 ==');
   var backup = { format: 'datalab-backup', schemaVersion: 1, raw: bakRaw };
   var r = BACKUP.applyRestore(backup, { mode: 'replace' });
   t('replace 恢复成功', r.ok === true, JSON.stringify(r));
-  t('4 键全部写入', r.written.length === 4, String(r.written.length));
+  t('6 键全部写入', r.written.length === 6, String(r.written.length));
   t('恢复后 raw 与备份一致', jsonEqual(BACKUP.readRaw(), bakRaw));
   t('恢复前快照保留原始值', jsonEqual(r.snapshot.raw, seedState()), JSON.stringify(r.snapshot.raw));
   t('快照已持久化到独立键', global.localStorage.getItem(BACKUP.SNAPSHOT_KEY) !== null);
@@ -272,12 +277,54 @@ console.log('== 9. 数据一致性往返（导出 → 破坏 → 恢复 → 字�
   t('再导出 parsed 一致', jsonEqual(again.parsed, original.parsed));
 })();
 
-console.log('== 10. 未来积木草稿命名空间常量（阶段 B 只声明不写入） ==');
+console.log('== 10. 积木草稿命名空间常量（阶段 C 已启用） ==');
 (function () {
   t('BLOCK_PREFIX 独立于旧前缀', BACKUP.BLOCK_PREFIX === 'datalab.demo01b.', BACKUP.BLOCK_PREFIX);
   t('BLOCK_KEYS 预定义', jsonEqual(BACKUP.BLOCK_KEYS, ['blocks', 'inputMode']), JSON.stringify(BACKUP.BLOCK_KEYS));
-  t('BLOCK_DATA_VERSION = 1', BACKUP.BLOCK_DATA_VERSION === 1);
+  t('ALL_KEYS 含 6 键', BACKUP.ALL_KEYS.length === 6, JSON.stringify(BACKUP.ALL_KEYS));
   t('旧前缀未被污染（仍只有 4 键定义）', jsonEqual(BACKUP.KEYS, ['currentExercise', 'sql', 'done', 'lastRecord']));
+})();
+
+console.log('== 11. 积木草稿键纳入备份导出与恢复 ==');
+(function () {
+  var blocksVal = JSON.stringify({ 1: [{ id: 1, label: 'SELECT', sql: 'SELECT', type: 'keyword' }] });
+  var modeVal = JSON.stringify({ 1: 'blocks' });
+  var map = seedState();
+  map[K.blocks] = blocksVal;
+  map[K.inputMode] = modeVal;
+  setStorage(map);
+  var b = BACKUP.exportBackup();
+  t('导出含积木草稿键', b.raw[K.blocks] === blocksVal && b.raw[K.inputMode] === modeVal);
+  // 破坏后恢复
+  setStorage({ [K.currentExercise]: '9' });
+  var r = BACKUP.applyRestore(b, { mode: 'replace' });
+  t('恢复后积木草稿还原', r.ok && global.localStorage.getItem(K.blocks) === blocksVal);
+  t('恢复后输入模式还原', global.localStorage.getItem(K.inputMode) === modeVal);
+})();
+
+console.log('== 12. 旧 v1 备份向新版本恢复（迁移路径，不删积木草稿） ==');
+(function () {
+  // 当前 store 已有积木草稿
+  var keepBlocks = JSON.stringify({ 1: [{ id: 1, label: 'WHERE', sql: 'WHERE', type: 'keyword' }] });
+  var map = seedState();
+  map[K.blocks] = keepBlocks;
+  map[K.inputMode] = JSON.stringify({ 1: 'blocks' });
+  setStorage(map);
+
+  // 构造 v1 老备份（仅 4 旧键，schemaVersion=1）
+  var v1 = { format: 'datalab-backup', schemaVersion: 1, raw: {
+    [K.currentExercise]: '7',
+    [K.sql]: JSON.stringify({ 7: 'SELECT * FROM students;' }),
+    [K.done]: JSON.stringify({ 7: true }),
+    [K.lastRecord]: JSON.stringify({ id: 7, result: 'PASS', time: 1 })
+  } };
+  var v = BACKUP.validateBackup(v1);
+  t('v1 老备份校验通过（迁移）', v.ok === true && v.migrated === true, JSON.stringify(v));
+  var r = BACKUP.applyRestore(v1, { mode: 'replace' });
+  t('v1 恢复成功', r.ok === true);
+  t('旧 4 键被恢复', global.localStorage.getItem(K.currentExercise) === '7' && JSON.parse(global.localStorage.getItem(K.done))['7'] === true);
+  t('积木草稿键未被删除（老备份不含新键）', global.localStorage.getItem(K.blocks) === keepBlocks);
+  t('输入模式键未被删除', global.localStorage.getItem(K.inputMode) === JSON.stringify({ 1: 'blocks' }));
 })();
 
 console.log('');
