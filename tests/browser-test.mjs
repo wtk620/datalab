@@ -273,6 +273,33 @@ async function main() {
   await sleep(300);
   chk('题 2 独立草稿保留', await c.evaluate(`window.SQLBlocksV4.getSQL() === 'SELECT name FROM students'`));
 
+  console.log('== 6. 积木编辑：换行 / 撤销 / 清空（真实浏览器） ==');
+  await c.evaluate(`window.SQLBlocksV4.setBlocks([
+    {id:1,label:'SELECT',sql:'SELECT',type:'keyword'},
+    {id:2,label:'name',sql:'name',type:'field'},
+    {id:3,label:'↵ 换行',sql:'\\n',type:'newline'},
+    {id:4,label:'FROM',sql:'FROM',type:'keyword'},
+    {id:5,label:'students',sql:'students',type:'field'}
+  ])`);
+  chk('换行积木生成真实换行', await c.evaluate(`window.SQLBlocksV4.getSQL() === 'SELECT name\\nFROM students'`), await c.evaluate(`window.SQLBlocksV4.getSQL()`));
+
+  // 撤销：通过 addBlock 制造一次可撤销编辑
+  await c.evaluate(`window.SQLBlocksV4.setBlocks([
+    {id:1,label:'SELECT',sql:'SELECT',type:'keyword'},
+    {id:2,label:'name',sql:'name',type:'field'},
+    {id:3,label:'FROM',sql:'FROM',type:'keyword'},
+    {id:4,label:'students',sql:'students',type:'field'}
+  ])`);
+  await c.evaluate(`window.SQLBlocksV4.addBlock({label:'WHERE',sql:'WHERE',type:'keyword'})`);
+  chk('新增块后 SQL', await c.evaluate(`window.SQLBlocksV4.getSQL() === 'SELECT name FROM students WHERE'`), await c.evaluate(`window.SQLBlocksV4.getSQL()`));
+  await c.evaluate(`document.getElementById('undoBtn').click()`);
+  await sleep(200);
+  chk('撤销恢复上一状态', await c.evaluate(`window.SQLBlocksV4.getSQL() === 'SELECT name FROM students'`), await c.evaluate(`window.SQLBlocksV4.getSQL()`));
+
+  await c.evaluate(`window.confirm=function(){return true;};window.alert=function(){};document.getElementById('clearBtn').click();document.getElementById('confirmOk').click()`);
+  await sleep(200);
+  chk('清空后积木为空', await c.evaluate(`window.SQLBlocksV4.getSQL() === ''`));
+
   console.log('');
   const pass = results.filter((r) => r.ok).length;
   const fail = results.length - pass;
