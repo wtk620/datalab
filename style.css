@@ -531,3 +531,21 @@ body.drawer-open { overflow: hidden; }
   flex: 0 0 auto;
   flex-wrap: wrap;
 }
+
+/* ---------- 数据安全保护横幅（阶段 B.1） ---------- */
+.safety-banner {
+  background: var(--red-bg);
+  border: 1px solid #f5c6c6;
+  border-left: 4px solid var(--red);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.safety-msg { font-weight: 700; color: #7f1d1d; font-size: 14px; }
+.safety-issues { font-size: 13px; color: #7f1d1d; }
+.safety-issues ul { margin: 4px 0 0; padding-left: 18px; }
+.safety-issues li { margin: 2px 0; word-break: break-all; }
+.safety-issues code { font-family: var(--mono); font-size: 12px; background: rgba(0,0,0,.05); padding: 0 4px; border-radius: 4px; }
+.safety-actions { display: flex; gap: 8px; flex-wrap: wrap; }

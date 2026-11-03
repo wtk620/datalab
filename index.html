@@ -31,6 +31,16 @@
   </header>
 
   <main class="content">
+    <!-- 数据安全保护横幅（异常时显示） -->
+    <div id="safetyBanner" class="safety-banner hidden" role="alert">
+      <div class="safety-msg" id="safetyMsg"></div>
+      <div class="safety-issues" id="safetyIssues"></div>
+      <div class="safety-actions">
+        <button id="safetyExportBtn" class="btn ghost-dark" type="button">导出进度备份</button>
+        <button id="safetyRestoreBtn" class="btn ghost-dark hidden" type="button">恢复恢复前快照</button>
+      </div>
+    </div>
+
     <!-- 1. 题目介绍 -->
     <section class="card task-card">
       <div class="task-head">
@@ -160,6 +170,7 @@
   <script src="db.js"></script>
   <script src="judge.js"></script>
   <script src="backup.js"></script>
+  <script src="store.js"></script>
   <script src="backup-ui.js"></script>
   <script src="app.js"></script>
 </body>

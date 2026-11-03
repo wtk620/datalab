@@ -10,6 +10,7 @@ var ASSETS = [
   './data.js',
   './syntax.js',
   './backup.js',
+  './store.js',
   './backup-ui.js',
   './backup.html',
   './sql-wasm.js',
