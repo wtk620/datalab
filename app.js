@@ -7,7 +7,6 @@
   var JUDGE = window.DataLabJudge;
   var SYN = window.DataLabSyntax;
 
-  var LS_PREFIX = 'datalab.demo01.';
   var STARTER_SQL = 'SELECT * FROM students;';
 
   var state = {
@@ -37,35 +36,33 @@
 
   /* ---------- 持久化与安全保护（阶段 B.1：逐键检测 + 危险写入阻断） ---------- */
 
-  var debounceTimer = null;   // 输入防抖保存定时器（进入保护状态时取消）
+  var debounceTimer = null;         // 输入防抖保存定时器（进入保护状态时取消）
+  var storeLoadFailed = false;      // 安全存储模块加载失败标志（阻止一切持久化写入）
 
   function loadState() {
     var store = window.DataLabStore;
-    if (store) {
-      // 逐键独立读取/解析/类型校验：一键损坏不影响其他键，异常即进入保护状态
-      var diag = store.diagnose();
-      state.currentId = diag.values.currentExercise || 1;
-      state.sql = diag.values.sql || {};
-      state.completed = diag.values.done || {};
-      state.lastRecord = diag.values.lastRecord || null;
-    } else {
-      // 兜底：DataLabStore 未加载时按旧逻辑（正常部署不会发生）
-      try {
-        state.currentId = parseInt(localStorage.getItem(LS_PREFIX + 'currentExercise'), 10) || 1;
-        state.sql = JSON.parse(localStorage.getItem(LS_PREFIX + 'sql')) || {};
-        state.completed = JSON.parse(localStorage.getItem(LS_PREFIX + 'done')) || {};
-        state.lastRecord = JSON.parse(localStorage.getItem(LS_PREFIX + 'lastRecord')) || null;
-      } catch (e) {
-        state = { currentId: 1, completed: {}, sql: {}, lastRecord: null };
-      }
+    if (!store) {
+      // 安全存储模块不可用：绝不退回旧版直接读写，也不清空/触碰 localStorage 中的旧数据。
+      // 只进入「模块缺失保护」，由横幅提供只读导出抢救 + 刷新修复提示。
+      storeLoadFailed = true;
+      state = { currentId: 1, completed: {}, sql: {}, lastRecord: null };
+      return;
     }
+    storeLoadFailed = false;
+
+    // 逐键独立读取/解析/类型校验：一键损坏不影响其他键，异常即进入保护状态
+    var diag = store.diagnose();
+    state.currentId = diag.values.currentExercise || 1;
+    state.sql = diag.values.sql || {};
+    state.completed = diag.values.done || {};
+    state.lastRecord = diag.values.lastRecord || null;
 
     // 题目 id 合法性（与旧逻辑一致）
     var ids = DATA.EXERCISES.map(function (ex) { return ex.id; });
     if (ids.indexOf(state.currentId) === -1) { state.currentId = ids[0]; }
 
     // 进入保护状态时，取消尚未执行的延迟保存，避免异常检测之后仍发生写入
-    if (store && store.isProtected()) { cancelPendingSave(); }
+    if (store.isProtected()) { cancelPendingSave(); }
   }
 
   function cancelPendingSave() {
@@ -73,21 +70,13 @@
   }
 
   function isWriteBlocked() {
+    if (storeLoadFailed) { return true; }   // 模块缺失：阻止一切写入
     return !!(window.DataLabStore && window.DataLabStore.isProtected());
   }
 
   function saveState() {
-    if (isWriteBlocked()) { return; }   // 保护状态：阻止可能覆盖旧记录的持久化写入
-    if (window.DataLabStore) {
-      window.DataLabStore.save(state);
-    } else {
-      try {
-        localStorage.setItem(LS_PREFIX + 'currentExercise', String(state.currentId));
-        localStorage.setItem(LS_PREFIX + 'sql', JSON.stringify(state.sql));
-        localStorage.setItem(LS_PREFIX + 'done', JSON.stringify(state.completed));
-        if (state.lastRecord) { localStorage.setItem(LS_PREFIX + 'lastRecord', JSON.stringify(state.lastRecord)); }
-      } catch (e) { /* 忽略存储异常 */ }
-    }
+    if (isWriteBlocked()) { return; }   // 保护/模块缺失：阻止可能覆盖旧记录的持久化写入
+    window.DataLabStore.save(state);     // 模块缺失时已被 isWriteBlocked 拦截，不会走到这里
   }
 
   function saveCurrentSql() {
@@ -270,6 +259,16 @@
     var banner = $('safetyBanner');
     if (!banner) { return; }
     var store = window.DataLabStore;
+
+    // 安全存储模块缺失：可见错误 + 只读导出抢救入口，阻止写入
+    if (storeLoadFailed) {
+      banner.classList.remove('hidden');
+      $('safetyMsg').textContent = '安全存储模块（store.js）加载失败，已阻止一切持久化写入，学习进度未被修改。';
+      $('safetyIssues').innerHTML = '<ul><li><code>store.js</code>：加载失败或脚本执行异常（可能为浏览器缓存新旧脚本混用）。请先点「导出进度备份」抢救数据，再刷新页面重试。</li></ul>';
+      $('safetyRestoreBtn').classList.add('hidden');
+      return;
+    }
+
     if (!store || !store.isProtected()) {
       banner.classList.add('hidden');
       return;
@@ -375,21 +374,17 @@
   }
 
   function onReset() {
+    if (storeLoadFailed) {
+      window.alert('安全存储模块（store.js）加载失败，已阻止重置以保护进度。\n请先点「导出进度备份」抢救数据，再刷新页面重试；修复后仍可正常重置。');
+      return;
+    }
     var protectedMode = isWriteBlocked();
     var msg = protectedMode
       ? '检测到学习进度数据异常，当前处于保护模式。\n重置将删除本设备全部学习进度（含无法解析的原始数据）。\n强烈建议先点顶栏「导出进度」备份原始数据。\n\n确定仍要重置吗？'
       : '确定要重置学习进度吗？\n将清空：当前题目、各题 SQL 输入、完成状态与练习记录。\n（不会影响任何项目文件。）';
     if (!window.confirm(msg)) { return; }
 
-    if (window.DataLabStore) {
-      window.DataLabStore.reset();
-    } else {
-      try {
-        Object.keys(localStorage).forEach(function (k) {
-          if (k.indexOf(LS_PREFIX) === 0) { localStorage.removeItem(k); }
-        });
-      } catch (e) { /* ignore */ }
-    }
+    window.DataLabStore.reset();
     // 清理备份安全键（恢复日志 + 恢复前快照），避免残留导致下次启动误判「未完成恢复」
     if (window.DataLabBackup) {
       try { localStorage.removeItem(window.DataLabBackup.RESTORE_JOURNAL_KEY); } catch (e) { /* ignore */ }
