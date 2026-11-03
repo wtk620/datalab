@@ -213,6 +213,36 @@ async function main() {
   // 恢复正常
   await c.setFail('none');
 
+  console.log('== 4. 积木模式：切换 + 生成 SQL + 运行 + 判题（与手写共用执行器/判题器） ==');
+  await c.reload();
+  await sleep(1200);
+  await c.evaluate(`document.getElementById('modeToggleBtn').click()`);
+  await sleep(300);
+  chk('积木面板可见', await c.evaluate(`!document.getElementById('blockModeCard').classList.contains('hidden')`));
+  chk('手写答题框入口隐藏', await c.evaluate(`document.getElementById('fbExpandBtn').classList.contains('hidden')`));
+  await c.evaluate(`window.SQLBlocksV4.setBlocks([
+    {id:1,label:'SELECT',sql:'SELECT',type:'keyword'},
+    {id:2,label:'name',sql:'name',type:'field'},
+    {id:3,label:',',sql:',',type:'operator'},
+    {id:4,label:'city',sql:'city',type:'field'},
+    {id:5,label:',',sql:',',type:'operator'},
+    {id:6,label:'score',sql:'score',type:'field'},
+    {id:7,label:'FROM',sql:'FROM',type:'keyword'},
+    {id:8,label:'students',sql:'students',type:'field'},
+    {id:9,label:'WHERE',sql:'WHERE',type:'keyword'},
+    {id:10,label:'score',sql:'score',type:'field'},
+    {id:11,label:'>=',sql:'>=',type:'operator'},
+    {id:12,label:'90',sql:'90',type:'number'}
+  ])`);
+  chk('积木生成 SQL 正确', await c.evaluate(`window.SQLBlocksV4.getSQL() === 'SELECT name, city, score FROM students WHERE score >= 90'`), await c.evaluate(`window.SQLBlocksV4.getSQL()`));
+  await c.evaluate(`document.getElementById('bmRunBtn').click()`);
+  await sleep(700);
+  chk('积木运行返回结果', await c.evaluate(`(document.getElementById('runResult').innerText||'').indexOf('查询成功') >= 0`));
+  await c.evaluate(`document.getElementById('bmJudgeBtn').click()`);
+  await sleep(700);
+  chk('积木判题通过', await c.evaluate(`(document.getElementById('judgeResult').innerText||'').indexOf('判题通过') >= 0`));
+  chk('完成状态与手写共用', await c.evaluate(`window.DataLabStore && (function(){var d=JSON.parse(localStorage.getItem('datalab.demo01.done')||'{}');return d['1']===true;})()`));
+
   console.log('');
   const pass = results.filter((r) => r.ok).length;
   const fail = results.length - pass;

@@ -12,8 +12,10 @@
   var state = {
     currentId: 1,
     completed: {},          // { 1:true, 2:false, ... }
-    sql: {},                // { 1:'...', 2:'...' }
-    lastRecord: null        // { id, sql, result, time }
+    sql: {},                // 手写 SQL 草稿 { 1:'...', ... }（旧键，不更名）
+    lastRecord: null,       // { id, sql, result, time }
+    blocks: {},             // 积木草稿 { 1:[{...block}], ... }（阶段 C 持久化到新命名空间）
+    blockMode: {}           // 每题最后输入模式 { 1:'text'|'blocks', ... }
   };
 
   function $(id) { return document.getElementById(id); }
@@ -86,6 +88,50 @@
 
   function getSql(id) {
     return (state.sql[id] != null && state.sql[id] !== '') ? state.sql[id] : STARTER_SQL;
+  }
+
+  /* ---------- 双输入模式（手写 SQL / 积木 SQL） ---------- */
+
+  function currentMode() {
+    return state.blockMode[state.currentId] || 'text';
+  }
+
+  function getCurrentSql() {
+    if (currentMode() === 'blocks' && window.SQLBlocksV4) {
+      return window.SQLBlocksV4.getSQL();
+    }
+    return $('sqlEditor').value;
+  }
+
+  // 保存当前题「当前模式」的草稿（手写走旧键 sql；积木先入内存 blocks，gate 3 持久化）
+  function saveCurrentDraft() {
+    if (currentMode() === 'blocks') {
+      if (window.SQLBlocksV4) { state.blocks[state.currentId] = window.SQLBlocksV4.getBlocks(); }
+      saveState();   // 触发积木草稿持久化（gate 3 在 saveState 内一并处理）
+    } else {
+      saveCurrentSql();
+    }
+  }
+
+  function renderMode() {
+    var isBlocks = currentMode() === 'blocks';
+    $('blockModeCard').classList.toggle('hidden', !isBlocks);
+    $('fbExpandBtn').classList.toggle('hidden', isBlocks);
+    $('modeToggleBtn').textContent = isBlocks ? '手写模式' : '积木模式';
+    if (isBlocks && window.SQLBlocksV4) {
+      window.SQLBlocksV4.setBlocks(state.blocks[state.currentId] || []);
+    } else {
+      $('sqlEditor').value = getSql(state.currentId);
+    }
+  }
+
+  function toggleMode() {
+    var next = currentMode() === 'blocks' ? 'text' : 'blocks';
+    saveCurrentDraft();
+    state.blockMode[state.currentId] = next;
+    if (next === 'blocks') { collapsePanel(); }   // 切到积木时收起手写面板
+    saveState();
+    renderMode();
   }
 
   /* ---------- 渲染 ---------- */
@@ -248,7 +294,7 @@
     renderData();
     renderLastRecord();
     renderSafetyBanner();
-    $('sqlEditor').value = getSql(state.currentId);
+    renderMode();
     $('runResult').innerHTML = '';
     $('judgeResult').innerHTML = '';
   }
@@ -318,7 +364,7 @@
 
   function switchExercise(id) {
     if (id === state.currentId) { return; }
-    saveCurrentSql();
+    saveCurrentDraft();
     state.currentId = id;
     saveState();
     renderAll();
@@ -332,8 +378,8 @@
   }
 
   function onRun() {
-    var sql = $('sqlEditor').value;
-    saveCurrentSql();
+    var sql = getCurrentSql();
+    saveCurrentDraft();
     state.lastRecord = { id: state.currentId, sql: sql, result: 'RUN', time: Date.now() };
     saveState();
     renderLastRecord();
@@ -353,8 +399,8 @@
   }
 
   function onJudge() {
-    var sql = $('sqlEditor').value;
-    saveCurrentSql();
+    var sql = getCurrentSql();
+    saveCurrentDraft();
     var ex = currentEx();
 
     var jr = JUDGE.judge(ex, sql);
@@ -396,7 +442,7 @@
 
   function onCopyChat() {
     var ex = currentEx();
-    var sql = $('sqlEditor').value;
+    var sql = getCurrentSql();
     var runText = $('runResult').innerText || '(尚未运行)';
     var judgeText = $('judgeResult').innerText || '(尚未判题)';
 
@@ -551,6 +597,11 @@
     $('fbExpandBtn').addEventListener('click', expandPanel);
     $('fbCollapseBtn').addEventListener('click', collapsePanel);
 
+    // 双输入模式：切换 + 积木面板运行/判题（复用同一执行器与判题器）
+    $('modeToggleBtn').addEventListener('click', toggleMode);
+    $('bmRunBtn').addEventListener('click', onRun);
+    $('bmJudgeBtn').addEventListener('click', onJudge);
+
     $('resetBtn').addEventListener('click', onReset);
     $('copyChatBtn').addEventListener('click', onCopyChat);
 
@@ -625,6 +676,18 @@
   function init() {
     loadState();
     bindEvents();
+
+    // 挂载积木编辑器（第二输入方式），并监听变更以保存积木草稿
+    if (window.SQLBlocksV4) {
+      window.SQLBlocksV4.mount();
+      window.SQLBlocksV4.onChange(function () {
+        if (currentMode() === 'blocks') {
+          state.blocks[state.currentId] = window.SQLBlocksV4.getBlocks();
+          saveState();   // gate 3：saveState 一并持久化积木草稿
+        }
+      });
+    }
+
     renderAll();
     setupKeyboardHandling();
 

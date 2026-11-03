@@ -13,6 +13,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="blocks.css">
 </head>
 <body>
   <header class="topbar">
@@ -76,6 +77,50 @@
       <div id="runResult" class="run-result"></div>
       <div id="judgeResult" class="judge-result"></div>
     </section>
+
+    <!-- 4. SQL 积木模式（第二种输入方式） -->
+    <section class="card hidden" id="blockModeCard">
+      <div id="blockPanel">
+        <div class="bm-workspace">
+          <div class="bm-panel">
+            <div class="bm-panel-head">
+              <h2>SQL 积木拼接区</h2>
+              <span class="bm-count" id="blocksCount">0 个积木</span>
+            </div>
+            <div class="bm-toolbar">
+              <button id="undoBtn" class="bm-btn" type="button" disabled>↩ 撤销</button>
+              <button id="clearBtn" class="bm-btn" type="button">清空</button>
+              <button id="moveLeftBtn" class="bm-btn" type="button" disabled>◀ 前移</button>
+              <button id="moveRightBtn" class="bm-btn" type="button" disabled>后移 ▶</button>
+              <button id="insertNewlineBtn" class="bm-btn" type="button">↵ 换行</button>
+              <button id="deleteSelBtn" class="bm-btn bm-danger" type="button" disabled>删除</button>
+              <button id="editSelBtn" class="bm-btn" type="button" disabled>编辑</button>
+            </div>
+            <div class="blocks-area" id="blocksArea" aria-label="SQL 积木拼接区"></div>
+            <div class="bm-foot">按住积木拖动排序 · 点按选中 · 拖动靠近上下边缘可自动滚动。</div>
+          </div>
+          <div class="bm-panel">
+            <div class="bm-panel-head">
+              <h2>实时 SQL 预览</h2>
+              <button id="copySqlBtn" class="bm-btn" type="button">复制 SQL</button>
+            </div>
+            <pre class="sql-preview" id="sqlPreview"><span class="sql-empty">（暂无语句）</span></pre>
+            <div class="bm-foot">随左侧积木实时更新；运行/判题复用下方按钮。</div>
+          </div>
+        </div>
+        <div class="bm-palette">
+          <div class="bm-palette-head">
+            <h2>语法模块库</h2>
+            <button id="customBtn" class="bm-btn bm-accent" type="button">＋ 自定义</button>
+          </div>
+          <div class="palette-groups" id="paletteGroups"></div>
+        </div>
+        <div class="bm-actions">
+          <button id="bmRunBtn" class="bm-btn bm-run" type="button">▶ 运行 SQL</button>
+          <button id="bmJudgeBtn" class="bm-btn bm-judge" type="button">✓ 提交判题</button>
+        </div>
+      </div>
+    </section>
   </main>
 
   <!-- 底部悬浮答题框 -->
@@ -86,6 +131,7 @@
       <span id="fbProgress" class="fb-progress">1 / 30</span>
       <button id="nextBtn" class="fb-btn nav" type="button">下一题 →</button>
       <div class="fb-spacer"></div>
+      <button id="modeToggleBtn" class="fb-btn ghost" type="button">积木模式</button>
       <button id="fbExpandBtn" class="fb-btn primary" type="button">⌨ 答题框 ▴</button>
     </div>
 
@@ -164,6 +210,41 @@
 
   <div class="toast hidden" id="toast"></div>
 
+  <!-- 积木：自定义模块弹窗 -->
+  <div class="modal-mask hidden" id="customModal">
+    <div class="modal">
+      <h3 id="customModalTitle">＋ 自定义模块</h3>
+      <div class="modal-tabs" id="customTabs">
+        <button data-type="number" class="active" type="button">数字</button>
+        <button data-type="text" type="button">文本</button>
+        <button data-type="alias" type="button">字段名/别名</button>
+        <button data-type="raw" type="button">SQL 片段</button>
+      </div>
+      <div class="modal-body">
+        <label class="modal-label" for="customInput" id="customInputLabel">数值</label>
+        <input id="customInput" type="text" autocomplete="off" spellcheck="false" placeholder="例如 90">
+        <div class="modal-hint" id="customHint"></div>
+        <div class="modal-preview">生成 SQL：<code id="customSqlPreview">—</code></div>
+      </div>
+      <div class="modal-actions">
+        <button id="customCancel" class="bm-btn" type="button">取消</button>
+        <button id="customOk" class="bm-btn bm-accent" type="button">添加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 积木：清空确认弹窗 -->
+  <div class="modal-mask hidden" id="confirmModal">
+    <div class="modal modal-sm">
+      <h3>清空语句？</h3>
+      <p>将删除当前题目的所有积木。此操作可撤销。</p>
+      <div class="modal-actions">
+        <button id="confirmCancel" class="bm-btn" type="button">取消</button>
+        <button id="confirmOk" class="bm-btn bm-danger" type="button">清空</button>
+      </div>
+    </div>
+  </div>
+
   <script src="sql-wasm.js"></script>
   <script src="data.js"></script>
   <script src="syntax.js"></script>
@@ -171,6 +252,7 @@
   <script src="judge.js"></script>
   <script src="backup.js"></script>
   <script src="store.js"></script>
+  <script src="blocks.js"></script>
   <script src="backup-ui.js"></script>
   <script src="app.js"></script>
 </body>
