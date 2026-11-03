@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d1b2a">
+  <title>DataLab · 学习进度备份导出（只读）</title>
+  <style>
+    :root { --bg:#f4f6f9; --panel:#fff; --border:#e3e8ef; --text:#1f2937; --dim:#6b7280; --accent:#1f6feb; --green:#16a34a; --amber:#b45309; --mono:"SF Mono",Menlo,Monaco,Consolas,monospace; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif; font-size:15px; line-height:1.55; padding: 16px; }
+    .wrap { max-width: 760px; margin: 0 auto; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    .sub { color: var(--dim); font-size: 13px; margin: 0 0 16px; }
+    .card { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:14px; }
+    .note { font-size:13px; color:var(--dim); margin: 0 0 12px; }
+    .warn { background:#fdf3e3; border-left:3px solid var(--amber); border-radius:6px; padding:10px 12px; font-size:13px; color:#7c4a03; margin: 0 0 14px; }
+    .meta { font-size:13px; color:var(--dim); margin-bottom:10px; display:flex; flex-direction:column; gap:2px; }
+    .meta b { color:var(--text); }
+    textarea { width:100%; min-height:320px; font-family:var(--mono); font-size:12.5px; line-height:1.5; border:1px solid var(--border); border-radius:8px; padding:10px; background:#0d1b2a; color:#e6edf3; resize:vertical; }
+    .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+    button { padding:9px 16px; border-radius:8px; border:1px solid transparent; cursor:pointer; font-size:14px; font-weight:600; min-height:40px; }
+    .primary { background:var(--accent); color:#fff; }
+    .ghost { background:#fff; color:var(--text); border-color:var(--border); }
+    .status { font-size:13px; margin-top:10px; min-height:18px; }
+    .ok { color:var(--green); } .err { color:#dc2626; }
+    code { font-family:var(--mono); font-size:12px; background:rgba(0,0,0,.06); padding:1px 5px; border-radius:4px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>DataLab 学习进度备份导出</h1>
+    <p class="sub">只读工具 · 仅读取本设备浏览器中保存的 4 个进度键，绝不修改、不写入、不删除。</p>
+
+    <div class="card">
+      <p class="warn">
+        <b>必须在正式网站的同源地址打开本页</b>：请直接在 iPad Safari 访问
+        <code>https://wtk620.github.io/datalab/backup.html</code>（与正式网站同源），
+        否则读不到正式网站保存的数据。当前页面来源：<span id="origin"></span>
+      </p>
+      <div class="meta" id="meta">生成中…</div>
+      <textarea id="jsonOut" readonly spellcheck="false"></textarea>
+      <div class="actions">
+        <button id="copyBtn" class="ghost" type="button">复制 JSON</button>
+        <button id="downloadBtn" class="primary" type="button">下载 backup.json</button>
+      </div>
+      <div class="status" id="status"></div>
+    </div>
+  </div>
+
+  <script src="backup.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      var B = window.DataLabBackup;
+      document.getElementById('origin').textContent = (location.origin || '(unknown)') + (location.pathname || '');
+
+      function build() {
+        var backup = B.exportBackup();
+        document.getElementById('jsonOut').value = B.toJsonText(backup);
+        var html = '<div><b>备份格式：</b>' + backup.format + ' v' + backup.schemaVersion + '</div>'
+          + '<div><b>应用版本：</b>' + backup.appVersion + '</div>'
+          + '<div><b>生成时间：</b>' + backup.exportedAt + '</div>'
+          + '<div><b>解析告警：</b>' + (backup.parseWarnings.length ? backup.parseWarnings.length + ' 项（已按原始值保留）' : '无') + '</div>';
+        document.getElementById('meta').innerHTML = html;
+        return backup;
+      }
+
+      function setStatus(msg, ok) {
+        var el = document.getElementById('status');
+        el.textContent = msg;
+        el.className = 'status ' + (ok === false ? 'err' : 'ok');
+      }
+
+      var current = build();
+
+      document.getElementById('downloadBtn').addEventListener('click', function () {
+        current = build();
+        B.downloadBackup(current, B.defaultFilename(current));
+        setStatus('已触发下载（只读，未修改任何数据）', true);
+      });
+
+      document.getElementById('copyBtn').addEventListener('click', function () {
+        current = build();
+        B.copyText(B.toJsonText(current), function () {
+          setStatus('已复制到剪贴板，请粘贴到备忘录 / 邮件 / 文件保存', true);
+        });
+        setTimeout(function () {
+          if (document.getElementById('status').textContent.indexOf('已复制') === -1) {
+            setStatus('复制未确认成功，请手动全选上方文本框内容复制', false);
+          }
+        }, 600);
+      });
+    })();
+  </script>
+</body>
+</html>
