@@ -438,3 +438,178 @@ body.drawer-open { overflow: hidden; }
   .fb-btn { padding: 8px 10px; font-size: 13px; min-height: 40px; }
   .fb-progress { font-size: 12px; }
 }
+
+/* ---------- 学习进度备份：导出 / 导入弹窗与提示 ---------- */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--bar-h) + env(safe-area-inset-bottom) + 28px);
+  transform: translateX(-50%);
+  background: rgba(13, 27, 42, 0.96);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  max-width: min(520px, 92vw);
+  z-index: 60;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+}
+.toast.ok { border-left: 4px solid var(--green); }
+.toast.err { border-left: 4px solid var(--red); }
+
+.backup-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.backup-modal {
+  width: min(560px, 96vw);
+  max-height: 86vh;
+  background: var(--panel);
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.backup-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+.backup-head h3 { margin: 0; font-size: 16px; }
+.backup-body {
+  padding: 14px 16px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bk-summary { font-size: 13px; color: var(--text-dim); margin-bottom: 2px; }
+.bk-warn {
+  font-size: 12px; color: #7c4a03;
+  background: var(--amber-bg); border-left: 3px solid var(--amber);
+  border-radius: 6px; padding: 8px 10px;
+}
+.bk-row {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.bk-row.bk-conflict { border-color: #f0c9c9; background: #fff8f8; }
+.bk-row.bk-same { border-color: #bfe6cc; background: #f6fdf8; }
+.bk-row.bk-info { border-color: #c6d9f5; background: #f5f9ff; }
+.bk-key { font-weight: 600; font-size: 13px; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.bk-status { font-weight: 500; font-size: 12px; color: var(--text-dim); }
+.bk-row.bk-conflict .bk-status { color: var(--red); }
+.bk-row.bk-same .bk-status { color: var(--green); }
+.bk-vals { display: flex; flex-direction: column; gap: 2px; }
+.bk-val { font-family: var(--mono); font-size: 12px; color: var(--text-dim); word-break: break-all; }
+.bk-tag {
+  display: inline-block; font-family: -apple-system, sans-serif; font-size: 11px;
+  color: var(--text-dim); background: #eef2f7; border-radius: 4px; padding: 0 5px; margin-right: 6px;
+}
+.bk-foot { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+.backup-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+}
+
+/* ---------- 数据安全保护横幅（阶段 B.1） ---------- */
+.safety-banner {
+  background: var(--red-bg);
+  border: 1px solid #f5c6c6;
+  border-left: 4px solid var(--red);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.safety-msg { font-weight: 700; color: #7f1d1d; font-size: 14px; }
+.safety-issues { font-size: 13px; color: #7f1d1d; }
+.safety-issues ul { margin: 4px 0 0; padding-left: 18px; }
+.safety-issues li { margin: 2px 0; word-break: break-all; }
+.safety-issues code { font-family: var(--mono); font-size: 12px; background: rgba(0,0,0,.05); padding: 0 4px; border-radius: 4px; }
+.safety-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---------- 阶段 D.1：iPad 横屏学习工作台（双栏） ---------- */
+.workbench { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.wb-col-left { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.wb-col-right { min-width: 0; }
+
+/* 横屏 + 积木模式：左约 30%（题目/数据表/结果），右约 70%（积木工作台）；首屏不滚动、内部滚动 */
+@media (orientation: landscape) and (min-width: 700px) {
+  body.blocks-mode { padding-bottom: 0; }   /* 横屏积木模式高度已显式预留，去掉 body 底部 padding 避免多余页面滚动 */
+  body.blocks-mode .content {
+    max-width: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    /* 高度 = 视口 - 顶栏(≈52) - 底部操作栏 - 安全区 - 上下留白 */
+    height: calc(100dvh - 52px - var(--bar-h) - env(safe-area-inset-bottom) - 16px);
+    min-height: 0;
+    overflow: hidden;
+    padding-top: 12px;
+    padding-bottom: 4px;
+  }
+  body.blocks-mode .workbench {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(240px, 30%) minmax(0, 1fr);
+    gap: 12px;
+    align-items: stretch;
+  }
+  body.blocks-mode .wb-col-left {
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 2px;
+    gap: 12px;
+  }
+  body.blocks-mode .wb-col-right {
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  body.blocks-mode #blockPanel {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  body.blocks-mode #blockPanel .bm-workspace {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  body.blocks-mode #blockPanel .bm-palette {
+    flex: 0 0 auto;
+  }
+  body.blocks-mode #blockPanel .bm-palette .palette-groups {
+    max-height: 120px;   /* 模块库内部独立滚动，保证首屏可见 */
+  }
+}
+
+/* 竖屏/窄屏自动回退纵向（默认 workbench 已是纵向堆叠，无需额外覆盖） */
+@media (orientation: portrait) {
+  body.blocks-mode .content { max-width: none; }
+}
