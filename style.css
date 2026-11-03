@@ -263,6 +263,12 @@ kbd {
   font-size: 14px; font-weight: 600; color: #fff;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.fb-panel-summary {
+  flex: 1 1 auto;
+  display: none;               /* 默认隐藏，紧凑模式下显示 */
+  font-size: 13px; color: #c9d6e5;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .fb-engine-badge {
   font-size: 11px; color: #9db4d0;
   background: rgba(255,255,255,.1); padding: 2px 8px; border-radius: 999px; white-space: nowrap;
@@ -302,6 +308,15 @@ kbd {
 .fb-btn.ghost:hover { background: rgba(255,255,255,.12); }
 .fb-progress { color: #c9d6e5; font-size: 13px; white-space: nowrap; }
 .fb-spacer { flex: 1 1 auto; }
+
+/* 横屏紧凑输入模式：键盘弹出时缩小面板、精简顶部、隐藏导航与装饰 */
+body.compact .fb-panel { max-height: 40vh; }
+body.compact .fb-panel .sql-editor { min-height: 88px; max-height: 116px; }
+body.compact .fb-panel-title { display: none; }
+body.compact .fb-panel-summary { display: inline; }
+body.compact .fb-engine-badge { display: none; }
+body.compact .fb-panel .fb-btn.nav { display: none; }
+body.compact .fb-panel .fb-progress { display: none; }
 
 /* ---------- 抽屉 ---------- */
 .drawer-mask {

@@ -118,6 +118,8 @@
     var ex = currentEx();
     $('taskTitle').textContent = ex.title;
     $('fbPanelTitle').textContent = ex.title;
+    // 精简摘要：紧凑输入模式下显示的「关键条件 + 输出字段」
+    $('fbPanelSummary').textContent = ex.desc.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim() + '（' + ex.outputCols.replace(/^输出列：/, '') + '）';
     $('taskMeta').textContent = catLabel(ex.category) + ' · ' + ex.difficulty;
     $('taskDesc').innerHTML = ex.desc + '<div class="output-cols">' + escapeHtml(ex.outputCols) + '</div>';
     $('taskHint').innerHTML = ex.hint;
@@ -414,11 +416,13 @@
   }
 
   function scrollResultIntoView() {
+    // 键盘弹出时不自动滚动，避免 scrollIntoView 与 translateY 协作引发跳动
+    if (document.body.classList.contains('kb-open')) { return; }
     var el = document.querySelector('.result-card');
     if (el) { el.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
   }
 
-  /* ---------- 键盘处理：虚拟键盘弹出时抬升悬浮栏 ---------- */
+  /* ---------- 键盘处理：虚拟键盘弹出时抬升悬浮栏 + 横屏紧凑模式 ---------- */
 
   function setupKeyboardHandling() {
     var bar = $('floatingBar');
@@ -428,33 +432,26 @@
       function onViewport() {
         var vv = window.visualViewport;
         var keyboardOpen = (window.innerHeight - vv.height) > 120;
+        var landscape = window.innerWidth > window.innerHeight;
         if (keyboardOpen) {
-          // 键盘弹出：把悬浮栏抬到键盘上方，保证输入框和按钮可用
+          // 键盘弹出：把悬浮栏抬到键盘上方（只补偿一次，不再叠加 scrollIntoView，避免重复补偿与跳动）
           var keyboardHeight = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
           bar.style.transform = 'translateY(-' + keyboardHeight + 'px)';
           document.body.classList.add('kb-open');
+          // 仅横屏触控进入紧凑输入模式：缩小面板、精简顶部、隐藏导航
+          document.body.classList.toggle('compact', landscape && isTouch);
         } else {
           bar.style.transform = '';
           document.body.classList.remove('kb-open');
+          document.body.classList.remove('compact');
         }
       }
       window.visualViewport.addEventListener('resize', onViewport);
       window.visualViewport.addEventListener('scroll', onViewport);
     } else if (isTouch) {
+      // 无 visualViewport 的降级（老设备）：聚焦时收起悬浮栏
       $('sqlEditor').addEventListener('focus', function () { document.body.classList.add('kb-open'); });
       $('sqlEditor').addEventListener('blur', function () { document.body.classList.remove('kb-open'); });
-    }
-
-    // 触摸设备：聚焦编辑器时让其滚入可视区，避免被键盘遮挡
-    if (isTouch) {
-      $('sqlEditor').addEventListener('focus', function () {
-        var el = $('sqlEditor');
-        setTimeout(function () {
-          if (document.activeElement === el) {
-            try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { /* ignore */ }
-          }
-        }, 300);
-      });
     }
   }
 
