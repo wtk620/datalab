@@ -26,14 +26,13 @@
             var centered = Math.abs((w - content.width) / 2 - content.left) < 8;
             out.push('contentCentered=' + centered);
 
-            // 卡片纵向顺序：题目 → 编辑器 → 数据表 → 结果
+            // 卡片纵向顺序：题目 → 数据表 → 结果（编辑器在底部悬浮答题框内）
             var task = doc.querySelector('.task-card').getBoundingClientRect();
-            var editor = doc.querySelector('.editor-card').getBoundingClientRect();
             var schema = doc.querySelector('.schema-card').getBoundingClientRect();
             var result = doc.querySelector('.result-card').getBoundingClientRect();
-            out.push('order: task.top=' + Math.round(task.top) + ' editor.top=' + Math.round(editor.top) +
+            out.push('order: task.top=' + Math.round(task.top) +
               ' schema.top=' + Math.round(schema.top) + ' result.top=' + Math.round(result.top));
-            var orderOk = task.top < editor.top && editor.top < schema.top && schema.top < result.top;
+            var orderOk = task.top < schema.top && schema.top < result.top;
             out.push('orderOk=' + orderOk);
 
             // 数据表默认折叠

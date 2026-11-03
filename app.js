@@ -109,11 +109,15 @@
     $('fbProgress').textContent = (idx + 1) + ' / ' + total;
     $('prevBtn').disabled = (idx <= 0);
     $('nextBtn').disabled = (idx >= total - 1);
+    $('fbPanelProgress').textContent = (idx + 1) + ' / ' + total;
+    $('fbPrevBtn').disabled = (idx <= 0);
+    $('fbNextBtn').disabled = (idx >= total - 1);
   }
 
   function renderTask() {
     var ex = currentEx();
     $('taskTitle').textContent = ex.title;
+    $('fbPanelTitle').textContent = ex.title;
     $('taskMeta').textContent = catLabel(ex.category) + ' · ' + ex.difficulty;
     $('taskDesc').innerHTML = ex.desc + '<div class="output-cols">' + escapeHtml(ex.outputCols) + '</div>';
     $('taskHint').innerHTML = ex.hint;
@@ -294,6 +298,7 @@
     } finally {
       if (db) { db.close(); }
     }
+    scrollResultIntoView();
   }
 
   function onJudge() {
@@ -314,6 +319,7 @@
     renderExerciseList();
     updateProgress();
     renderLastRecord();
+    scrollResultIntoView();
   }
 
   function onReset() {
@@ -384,7 +390,35 @@
     document.body.classList.remove('drawer-open');
   }
 
-  /* ---------- 键盘处理：虚拟键盘弹出时收起悬浮栏 ---------- */
+  /* ---------- 悬浮答题面板 ---------- */
+
+  function expandPanel() {
+    $('fbCollapsed').classList.add('hidden');
+    $('fbPanel').classList.remove('hidden');
+    document.body.classList.add('panel-open');
+    syncLayout();
+  }
+
+  function collapsePanel() {
+    $('fbPanel').classList.add('hidden');
+    $('fbCollapsed').classList.remove('hidden');
+    document.body.classList.remove('panel-open');
+    syncLayout();
+  }
+
+  function syncLayout() {
+    var bar = $('floatingBar');
+    if (bar) {
+      document.body.style.paddingBottom = (bar.offsetHeight + 24) + 'px';
+    }
+  }
+
+  function scrollResultIntoView() {
+    var el = document.querySelector('.result-card');
+    if (el) { el.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
+  }
+
+  /* ---------- 键盘处理：虚拟键盘弹出时抬升悬浮栏 ---------- */
 
   function setupKeyboardHandling() {
     var bar = $('floatingBar');
@@ -394,7 +428,15 @@
       function onViewport() {
         var vv = window.visualViewport;
         var keyboardOpen = (window.innerHeight - vv.height) > 120;
-        document.body.classList.toggle('kb-open', keyboardOpen);
+        if (keyboardOpen) {
+          // 键盘弹出：把悬浮栏抬到键盘上方，保证输入框和按钮可用
+          var keyboardHeight = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+          bar.style.transform = 'translateY(-' + keyboardHeight + 'px)';
+          document.body.classList.add('kb-open');
+        } else {
+          bar.style.transform = '';
+          document.body.classList.remove('kb-open');
+        }
       }
       window.visualViewport.addEventListener('resize', onViewport);
       window.visualViewport.addEventListener('scroll', onViewport);
@@ -445,15 +487,16 @@
       searchTimer = setTimeout(function () { renderSyntax($('syntaxSearch').value); }, 120);
     });
 
-    // 悬浮操作栏
+    // 悬浮答题面板
     $('fbRunBtn').addEventListener('click', onRun);
     $('fbJudgeBtn').addEventListener('click', onJudge);
     $('prevBtn').addEventListener('click', function () { navigate(-1); });
     $('nextBtn').addEventListener('click', function () { navigate(1); });
+    $('fbPrevBtn').addEventListener('click', function () { navigate(-1); });
+    $('fbNextBtn').addEventListener('click', function () { navigate(1); });
+    $('fbExpandBtn').addEventListener('click', expandPanel);
+    $('fbCollapseBtn').addEventListener('click', collapsePanel);
 
-    // 编辑器卡片按钮（与悬浮栏独立绑定，各自单次触发）
-    $('runBtn').addEventListener('click', onRun);
-    $('judgeBtn').addEventListener('click', onJudge);
     $('resetBtn').addEventListener('click', onReset);
     $('copyChatBtn').addEventListener('click', onCopyChat);
 
@@ -508,6 +551,20 @@
     bindEvents();
     renderAll();
     setupKeyboardHandling();
+
+    // 显示当前部署版本（来源 data.js，便于识别版本）
+    if ($('appVersion') && DATA.VERSION) {
+      $('appVersion').textContent = 'Demo ' + DATA.VERSION;
+    }
+    // 检测 index.html 与 data.js 是否混用不同版本（新旧资源不一致时告警）
+    var metaVer = document.querySelector('meta[name="datalab-version"]');
+    if (metaVer && DATA.VERSION && metaVer.content !== DATA.VERSION) {
+      console.warn('[DataLab] 资源版本不一致：index.html=' + metaVer.content + '，data.js=' + DATA.VERSION);
+    }
+
+    // 同步底部面板占位（收起/展开状态不同高度）
+    syncLayout();
+    window.addEventListener('resize', syncLayout);
 
     if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       try {

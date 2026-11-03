@@ -233,9 +233,9 @@ window.DataLabData = (function () {
       id: 22, category: 'comprehensive', title: '第 22 题 · 综合：条件 + 排序', short: '条件+排序', difficulty: '进阶',
       desc: '查询 <strong>分数不低于 85 分的男生</strong>，按分数从高到低排列，输出 <strong>姓名（name）、分数（score）</strong> 两列。',
       outputCols: '输出列：name、score',
-      hint: '提示：先 <code>WHERE</code> 过滤，再 <code>ORDER BY</code> 排序。本题不比较行顺序。',
+      hint: '提示：先 <code>WHERE</code> 过滤，再 <code>ORDER BY</code> 排序。本题要求排序，行顺序需与结果一致。',
       refSql: "SELECT name, score FROM students WHERE gender = '男' AND score >= 85 ORDER BY score DESC;",
-      orderSensitive: false
+      orderSensitive: true
     },
     {
       id: 23, category: 'comprehensive', title: '第 23 题 · 综合：条件 + 计数', short: '条件+计数', difficulty: '基础',
@@ -255,19 +255,19 @@ window.DataLabData = (function () {
     },
     {
       id: 25, category: 'comprehensive', title: '第 25 题 · 综合：模糊 + 排序', short: '模糊+排序', difficulty: '进阶',
-      desc: '查询 <strong>城市以「南」结尾</strong> 的学生，按分数从高到低排列，输出 <strong>姓名（name）、城市（city）、分数（score）</strong> 三列。',
+      desc: '查询 <strong>城市包含「南」字</strong> 的学生，按分数从高到低排列，输出 <strong>姓名（name）、城市（city）、分数（score）</strong> 三列。',
       outputCols: '输出列：name、city、score',
-      hint: '提示：<code>LIKE</code> 模糊匹配 + <code>ORDER BY</code> 排序组合。本题不比较行顺序。',
-      refSql: "SELECT name, city, score FROM students WHERE city LIKE '%南' ORDER BY score DESC;",
-      orderSensitive: false
+      hint: "提示：用 <code>LIKE '%南%'</code> 匹配包含「南」的城市，再用 <code>ORDER BY</code> 排序。本题要求排序，行顺序需与结果一致。",
+      refSql: "SELECT name, city, score FROM students WHERE city LIKE '%南%' ORDER BY score DESC;",
+      orderSensitive: true
     },
     {
       id: 26, category: 'comprehensive', title: '第 26 题 · 综合：去重 + 排序', short: '去重+排序', difficulty: '基础',
       desc: '查询所有 <strong>不同的年龄（age）</strong>，按年龄从高到低排列，输出 <strong>年龄（age）</strong>。',
       outputCols: '输出列：age',
-      hint: '提示：<code>DISTINCT</code> 去重 + <code>ORDER BY</code> 排序组合。本题不比较行顺序。',
+      hint: '提示：<code>DISTINCT</code> 去重 + <code>ORDER BY</code> 排序组合。本题要求排序，行顺序需与结果一致。',
       refSql: 'SELECT DISTINCT age FROM students ORDER BY age DESC;',
-      orderSensitive: false
+      orderSensitive: true
     },
     {
       id: 27, category: 'group', title: '第 27 题 · GROUP BY 分组求最大', short: '分组最大值', difficulty: '进阶',
@@ -281,9 +281,9 @@ window.DataLabData = (function () {
       id: 28, category: 'comprehensive', title: '第 28 题 · 综合：条件 + 排序 + 限制', short: '三连组合', difficulty: '进阶',
       desc: '查询 <strong>分数最高的 3 名女生</strong>，按分数从高到低排列，输出 <strong>姓名（name）、分数（score）</strong> 两列。',
       outputCols: '输出列：name、score',
-      hint: '提示：<code>WHERE</code> 过滤 + <code>ORDER BY</code> 排序 + <code>LIMIT</code> 限制组合。本题不比较行顺序。',
+      hint: '提示：<code>WHERE</code> 过滤 + <code>ORDER BY</code> 排序 + <code>LIMIT</code> 限制组合。本题要求排序，行顺序需与结果一致。',
       refSql: "SELECT name, score FROM students WHERE gender = '女' ORDER BY score DESC LIMIT 3;",
-      orderSensitive: false
+      orderSensitive: true
     },
     {
       id: 29, category: 'comprehensive', title: '第 29 题 · 综合：分组 + 平均 + 限制', short: '平均分最高班级', difficulty: '挑战',
@@ -297,13 +297,14 @@ window.DataLabData = (function () {
       id: 30, category: 'comprehensive', title: '第 30 题 · 大综合：分组统计男生人数', short: '大综合', difficulty: '挑战',
       desc: '查询 <strong>高一年级各班</strong> 的 <strong>男生人数</strong>，按人数从多到少排列，输出 <strong>班级（class_name）</strong> 和 <strong>人数（列名 cnt）</strong> 两列。',
       outputCols: '输出列：class_name、cnt',
-      hint: "提示：先用 <code>WHERE class_name LIKE '高一%' AND gender = '男'</code> 过滤，再 <code>GROUP BY</code> + <code>COUNT</code>。本题不比较行顺序。",
+      hint: "提示：先用 <code>WHERE class_name LIKE '高一%' AND gender = '男'</code> 过滤，再 <code>GROUP BY</code> + <code>COUNT</code>。本题要求排序，行顺序需与结果一致。",
       refSql: "SELECT class_name, COUNT(*) AS cnt FROM students WHERE class_name LIKE '高一%' AND gender = '男' GROUP BY class_name ORDER BY cnt DESC;",
-      orderSensitive: false
+      orderSensitive: true
     }
   ];
 
   return {
+    VERSION: '0.1.2',
     SEED_STUDENTS: SEED_STUDENTS,
     SCHEMA: SCHEMA,
     CATEGORIES: CATEGORIES,

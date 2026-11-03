@@ -1,5 +1,5 @@
-/* DataLab Demo 0.1.1 — Service Worker：缓存静态资源，支持离线使用 */
-var CACHE_NAME = 'datalab-demo01-v2';
+/* DataLab Demo 0.1.2 — Service Worker：缓存静态资源，支持离线使用 */
+var CACHE_NAME = 'datalab-demo01-v3';
 var ASSETS = [
   './',
   './index.html',

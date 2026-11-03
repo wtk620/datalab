@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#1f6feb">
+  <meta name="datalab-version" content="0.1.2">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="DataLab">
@@ -17,7 +18,7 @@
   <header class="topbar">
     <div class="brand">
       <span class="logo">DataLab</span>
-      <span class="ver">Demo 0.1</span>
+      <span class="ver" id="appVersion">Demo 0.1.2</span>
     </div>
     <div class="top-right">
       <span id="engineStatus" class="engine-badge">引擎加载中…</span>
@@ -38,26 +39,7 @@
       <div id="taskHint" class="task-hint"></div>
     </section>
 
-    <!-- 2. SQL 编辑器 -->
-    <section class="card editor-card">
-      <div class="card-head editor-head">
-        <h3>SQL 编辑器</h3>
-        <div class="editor-actions">
-          <button id="copyChatBtn" class="btn ghost-dark" type="button">复制给 ChatGPT</button>
-          <button id="runBtn" class="btn primary" type="button">运行 SQL</button>
-          <button id="judgeBtn" class="btn accent" type="button">提交判题</button>
-        </div>
-      </div>
-      <textarea id="sqlEditor" class="sql-editor" spellcheck="false" autocapitalize="off"
-        autocorrect="off" autocomplete="off" enterkeyhint="go"
-        placeholder="在这里输入 SQL，例如：SELECT * FROM students;"></textarea>
-      <div class="editor-foot">
-        <span>快捷键：<kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>Enter</kbd> 运行</span>
-        <span class="engine-note">引擎：SQLite（WebAssembly）—— 与 MySQL 存在部分语法区别</span>
-      </div>
-    </section>
-
-    <!-- 3. 数据表（默认折叠） -->
+    <!-- 2. 数据表（默认折叠） -->
     <section class="card schema-card">
       <button id="schemaToggle" class="schema-toggle" type="button" aria-expanded="false">
         <span>数据表：students（查看结构 / 示例数据）</span>
@@ -73,22 +55,47 @@
       </div>
     </section>
 
-    <!-- 4. 查询结果 -->
+    <!-- 3. 查询结果 -->
     <section class="card result-card">
-      <h3>查询结果</h3>
+      <div class="card-head result-head">
+        <h3>查询结果</h3>
+        <button id="copyChatBtn" class="btn ghost-dark" type="button">复制给 ChatGPT</button>
+      </div>
       <div id="runResult" class="run-result"></div>
       <div id="judgeResult" class="judge-result"></div>
     </section>
   </main>
 
-  <!-- 底部悬浮操作栏 -->
+  <!-- 底部悬浮答题框 -->
   <div class="floating-bar" id="floatingBar">
-    <button id="prevBtn" class="fb-btn nav" type="button">← 上一题</button>
-    <span id="fbProgress" class="fb-progress">1 / 30</span>
-    <button id="nextBtn" class="fb-btn nav" type="button">下一题 →</button>
-    <div class="fb-spacer"></div>
-    <button id="fbRunBtn" class="fb-btn primary" type="button">运行 SQL</button>
-    <button id="fbJudgeBtn" class="fb-btn accent" type="button">提交判题</button>
+    <!-- 收起状态 -->
+    <div class="fb-collapsed" id="fbCollapsed">
+      <button id="prevBtn" class="fb-btn nav" type="button">← 上一题</button>
+      <span id="fbProgress" class="fb-progress">1 / 30</span>
+      <button id="nextBtn" class="fb-btn nav" type="button">下一题 →</button>
+      <div class="fb-spacer"></div>
+      <button id="fbExpandBtn" class="fb-btn primary" type="button">⌨ 答题框 ▴</button>
+    </div>
+
+    <!-- 展开状态 -->
+    <div class="fb-panel hidden" id="fbPanel">
+      <div class="fb-panel-head">
+        <span id="fbPanelTitle" class="fb-panel-title">第 1 题</span>
+        <span class="fb-engine-badge">SQLite 引擎</span>
+        <button id="fbCollapseBtn" class="fb-btn ghost" type="button">收起 ▾</button>
+      </div>
+      <textarea id="sqlEditor" class="sql-editor" spellcheck="false" autocapitalize="off"
+        autocorrect="off" autocomplete="off" enterkeyhint="go"
+        placeholder="在这里输入 SQL，例如：SELECT * FROM students;"></textarea>
+      <div class="fb-panel-actions">
+        <button id="fbPrevBtn" class="fb-btn nav" type="button">←</button>
+        <button id="fbNextBtn" class="fb-btn nav" type="button">→</button>
+        <span id="fbPanelProgress" class="fb-progress">1 / 30</span>
+        <div class="fb-spacer"></div>
+        <button id="fbRunBtn" class="fb-btn primary" type="button">运行 SQL</button>
+        <button id="fbJudgeBtn" class="fb-btn accent" type="button">提交判题</button>
+      </div>
+    </div>
   </div>
 
   <!-- 题目列表抽屉 -->

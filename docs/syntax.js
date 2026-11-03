@@ -66,7 +66,7 @@ window.DataLabSyntax = (function () {
       explain: '模糊匹配：% 匹配任意多个字符，_ 匹配单个字符。',
       syntax: "WHERE 列名 LIKE '模式'",
       example: "SELECT name, city FROM students WHERE city LIKE '%南';",
-      errors: '% 放在开头表示前缀匹配；LIKE 对 ASCII 默认不区分大小写。',
+      errors: '通配符位置决定匹配方式：<code>%南</code> 表示以「南」结尾（后缀匹配），<code>南%</code> 表示以「南」开头（前缀匹配）；LIKE 对 ASCII 默认不区分大小写。',
       note: 'MySQL 的 LIKE 对中文大小写语义略有差异；SQLite 默认不支持 REGEXP 正则。'
     },
     {
@@ -130,8 +130,8 @@ window.DataLabSyntax = (function () {
       explain: '按某列分组，通常与聚合函数（COUNT/SUM/AVG/MAX/MIN）配合。',
       syntax: 'SELECT 分组列, 聚合函数(列) FROM 表名 GROUP BY 分组列;',
       example: 'SELECT class_name, COUNT(*) AS cnt FROM students GROUP BY class_name;',
-      errors: 'SELECT 中出现的非聚合列必须出现在 GROUP BY 中。',
-      note: 'MySQL 5.7+ 同样默认要求非聚合列出现在 GROUP BY 中。'
+      errors: 'SQLite 不强制：未出现在 GROUP BY 中的非聚合列会返回任意一行的值，容易出错；建议把非聚合列都放进 GROUP BY。',
+      note: 'SQLite 默认不强制 ONLY_FULL_GROUP_BY；MySQL 5.7+ 默认开启该选项，要求 SELECT 中的非聚合列出现在 GROUP BY 中。'
     },
     {
       kw: 'HAVING', keys: ['having', '分组筛选'], category: '分组与筛选',

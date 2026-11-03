@@ -57,11 +57,26 @@ DB.load().then(function () {
   console.log('== 5. 顺序敏感判题规则 ==');
   var orderSensitiveIds = DATA.EXERCISES.filter(function (e) { return e.orderSensitive; }).map(function (e) { return e.id; });
   console.log('   顺序敏感题目 ID：' + JSON.stringify(orderSensitiveIds));
-  check('仅排序类题目顺序敏感（ID 2/12/13/14）', JSON.stringify(orderSensitiveIds) === JSON.stringify([2, 12, 13, 14]), JSON.stringify(orderSensitiveIds));
+  check('顺序敏感题目（2/12/13/14 + 22/25/26/28/30）', JSON.stringify(orderSensitiveIds) === JSON.stringify([2, 12, 13, 14, 22, 25, 26, 28, 30]), JSON.stringify(orderSensitiveIds));
 
   var ex2 = getEx(2);
   var ex2Asc = JUDGE.judge(ex2, 'SELECT name, class_name, score FROM students ORDER BY score ASC LIMIT 5;');
   check('第 2 题：升序（错误）判定不通过', ex2Asc.ok === false, ex2Asc.reason);
+
+  // 新增的 5 道排序题，验证错误排序会被判不通过
+  var wrongOrder = [
+    [22, "SELECT name, score FROM students WHERE gender = '男' AND score >= 85 ORDER BY score ASC;"],
+    [25, "SELECT name, city, score FROM students WHERE city LIKE '%南%' ORDER BY score ASC;"],
+    [26, 'SELECT DISTINCT age FROM students ORDER BY age ASC;'],
+    [28, "SELECT name, score FROM students WHERE gender = '女' ORDER BY score ASC LIMIT 3;"],
+    [30, "SELECT class_name, COUNT(*) AS cnt FROM students WHERE class_name LIKE '高一%' AND gender = '男' GROUP BY class_name ORDER BY cnt ASC;"]
+  ];
+  var wrongOk = true;
+  wrongOrder.forEach(function (w) {
+    var jr = JUDGE.judge(getEx(w[0]), w[1]);
+    if (jr.ok) { wrongOk = false; failures.push('第 ' + w[0] + ' 题：升序本应判错但通过了'); }
+  });
+  check('22/25/26/28/30 题：升序（错误）均判不通过', wrongOk);
 
   var ex1 = getEx(1);
   var ex1Sorted = JUDGE.judge(ex1, 'SELECT name, city, score FROM students WHERE score >= 90 ORDER BY score DESC;');
@@ -79,6 +94,10 @@ DB.load().then(function () {
   });
   synDb.close();
   check('17 个语法示例均可在当前库运行', synFails.length === 0, synFails.slice(0, 3).join(' | '));
+  var likeEntry = SYN.REF.filter(function (r) { return r.kw === 'LIKE'; })[0];
+  check('LIKE 说明已修正（%南=后缀，南%=前缀）', likeEntry.errors.indexOf('后缀') >= 0 && likeEntry.errors.indexOf('前缀') >= 0, likeEntry.errors);
+  var gbEntry = SYN.REF.filter(function (r) { return r.kw === 'GROUP BY'; })[0];
+  check('GROUP BY 差异说明已修正', gbEntry.note.indexOf('ONLY_FULL_GROUP_BY') >= 0 && gbEntry.note.indexOf('SQLite') >= 0, gbEntry.note);
 
   console.log('== 7. 错误 SQL 与非法输入 ==');
   var bad = JUDGE.judge(getEx(1), 'SELECT * FROM students WHERE;');

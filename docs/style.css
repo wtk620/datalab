@@ -224,24 +224,61 @@ kbd {
 
 .empty { color: var(--text-dim); font-size: 13px; padding: 12px 0; text-align: center; }
 
-/* ---------- 底部悬浮操作栏 ---------- */
+/* ---------- 底部悬浮答题框 ---------- */
 .floating-bar {
   position: fixed;
   left: 0; right: 0; bottom: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  padding-bottom: calc(8px + env(safe-area-inset-bottom));
-  background: rgba(13, 27, 42, 0.97);
+  background: rgba(13, 27, 42, 0.98);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border-top: 1px solid rgba(255,255,255,.08);
   z-index: 30;
   transition: transform .2s ease;
+  padding-bottom: env(safe-area-inset-bottom);
 }
-/* 虚拟键盘弹出时收起悬浮栏 */
-body.kb-open .floating-bar { transform: translateY(120%); }
+
+/* 收起状态：紧凑操作栏 */
+.fb-collapsed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+/* 展开状态：答题面板 */
+.fb-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  max-height: 58vh;
+  overflow: hidden;
+}
+.fb-panel-head {
+  display: flex; align-items: center; gap: 10px;
+  flex: 0 0 auto;
+}
+.fb-panel-title {
+  flex: 1 1 auto;
+  font-size: 14px; font-weight: 600; color: #fff;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fb-engine-badge {
+  font-size: 11px; color: #9db4d0;
+  background: rgba(255,255,255,.1); padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+}
+.fb-panel .sql-editor {
+  flex: 1 1 auto;
+  min-height: 120px;
+  max-height: 30vh;
+  background: #0d1b2a;
+  color: #e6edf3;
+  border-color: rgba(255,255,255,.18);
+}
+.fb-panel-actions {
+  display: flex; align-items: center; gap: 8px;
+  flex: 0 0 auto;
+}
 
 .fb-btn {
   min-height: 44px;
@@ -261,6 +298,8 @@ body.kb-open .floating-bar { transform: translateY(120%); }
 .fb-btn.primary:hover { background: var(--accent-dark); }
 .fb-btn.accent { background: var(--green); color: #fff; }
 .fb-btn.accent:hover { background: #128a3e; }
+.fb-btn.ghost { background: transparent; color: #c9d6e5; border-color: rgba(255,255,255,.3); }
+.fb-btn.ghost:hover { background: rgba(255,255,255,.12); }
 .fb-progress { color: #c9d6e5; font-size: 13px; white-space: nowrap; }
 .fb-spacer { flex: 1 1 auto; }
 
