@@ -117,6 +117,7 @@
 
   function renderMode() {
     var isBlocks = currentMode() === 'blocks';
+    document.body.classList.toggle('blocks-mode', isBlocks);
     $('blockModeCard').classList.toggle('hidden', !isBlocks);
     $('fbExpandBtn').classList.toggle('hidden', isBlocks);
     $('modeToggleBtn').textContent = isBlocks ? '手写模式' : '积木模式';

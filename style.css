@@ -549,3 +549,66 @@ body.drawer-open { overflow: hidden; }
 .safety-issues li { margin: 2px 0; word-break: break-all; }
 .safety-issues code { font-family: var(--mono); font-size: 12px; background: rgba(0,0,0,.05); padding: 0 4px; border-radius: 4px; }
 .safety-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---------- 阶段 D.1：iPad 横屏学习工作台（双栏） ---------- */
+.workbench { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.wb-col-left { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.wb-col-right { min-width: 0; }
+
+/* 横屏 + 积木模式：左约 30%（题目/数据表/结果），右约 70%（积木工作台）；首屏不滚动、内部滚动 */
+@media (orientation: landscape) and (min-width: 700px) {
+  body.blocks-mode .content {
+    max-width: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    /* 高度 = 视口 - 顶栏(≈52) - 底部操作栏 - 安全区 - 上下留白 */
+    height: calc(100dvh - 52px - var(--bar-h) - env(safe-area-inset-bottom) - 16px);
+    min-height: 0;
+    overflow: hidden;
+    padding-top: 12px;
+    padding-bottom: 4px;
+  }
+  body.blocks-mode .workbench {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(240px, 30%) minmax(0, 1fr);
+    gap: 12px;
+    align-items: stretch;
+  }
+  body.blocks-mode .wb-col-left {
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 2px;
+    gap: 12px;
+  }
+  body.blocks-mode .wb-col-right {
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  body.blocks-mode #blockPanel {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  body.blocks-mode #blockPanel .bm-workspace {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  body.blocks-mode #blockPanel .bm-palette {
+    flex: 0 0 auto;
+  }
+  body.blocks-mode #blockPanel .bm-palette .palette-groups {
+    max-height: 120px;   /* 模块库内部独立滚动，保证首屏可见 */
+  }
+}
+
+/* 竖屏/窄屏自动回退纵向（默认 workbench 已是纵向堆叠，无需额外覆盖） */
+@media (orientation: portrait) {
+  body.blocks-mode .content { max-width: none; }
+}

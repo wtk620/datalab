@@ -300,6 +300,78 @@ async function main() {
   await sleep(200);
   chk('清空后积木为空', await c.evaluate(`window.SQLBlocksV4.getSQL() === ''`));
 
+  console.log('== 7. 横屏双栏布局 + 竖屏回退 + 截图 ==');
+  const MEASURE = `(function(){
+    function R(e){ if(!e) return null; var b=e.getBoundingClientRect(); return {x:Math.round(b.x),y:Math.round(b.y),w:Math.round(b.width),h:Math.round(b.height),right:Math.round(b.right),bottom:Math.round(b.bottom)}; }
+    var c=document.querySelector('.content'); var cc=c&&c.getBoundingClientRect();
+    return {
+      innerW:window.innerWidth, innerH:window.innerHeight,
+      scrollW:document.documentElement.scrollWidth, scrollH:document.documentElement.scrollHeight,
+      content:c?{x:Math.round(cc.x),y:Math.round(cc.y),w:Math.round(cc.width),h:Math.round(cc.height),bottom:Math.round(cc.bottom)}:null,
+      left:R(document.querySelector('.wb-col-left')),
+      right:R(document.getElementById('blockModeCard')),
+      blocksArea:R(document.getElementById('blocksArea')),
+      sqlPreview:R(document.getElementById('sqlPreview')),
+      palette:R(document.getElementById('paletteGroups')),
+      floatingBar:R(document.getElementById('floatingBar'))
+    };
+  })()`;
+
+  await c.setViewport(1112, 834);
+  await c.reload();
+  await sleep(1200);
+  await c.evaluate(`(function(){ if (document.getElementById('blockModeCard').classList.contains('hidden')) { document.getElementById('modeToggleBtn').click(); } })()`);
+  await sleep(300);
+  await c.evaluate(`window.SQLBlocksV4.setBlocks([{id:1,label:'SELECT',sql:'SELECT',type:'keyword'},{id:2,label:'name',sql:'name',type:'field'},{id:3,label:',',sql:',',type:'operator'},{id:4,label:'score',sql:'score',type:'field'},{id:5,label:'FROM',sql:'FROM',type:'keyword'},{id:6,label:'students',sql:'students',type:'field'},{id:7,label:'WHERE',sql:'WHERE',type:'keyword'},{id:8,label:'score',sql:'score',type:'field'},{id:9,label:'>=',sql:'>=',type:'operator'},{id:10,label:'90',sql:'90',type:'number'}])`);
+  await sleep(200);
+  const L = await c.evaluate(MEASURE);
+  console.log('  [landscape] innerW=' + L.innerW + ' innerH=' + L.innerH + ' scrollW=' + L.scrollW + ' scrollH=' + L.scrollH);
+  console.log('  [landscape] left=' + JSON.stringify(L.left) + ' right=' + JSON.stringify(L.right));
+  console.log('  [landscape] blocksArea=' + JSON.stringify(L.blocksArea) + ' sqlPreview=' + JSON.stringify(L.sqlPreview) + ' palette=' + JSON.stringify(L.palette) + ' floatingBar=' + JSON.stringify(L.floatingBar));
+  chk('body.blocks-mode 生效', await c.evaluate(`document.body.classList.contains('blocks-mode')`));
+  chk('横屏双栏：左列在右列左侧', L.left && L.right && L.left.right <= L.right.x + 1, 'left.right=' + L.left.right + ' right.x=' + L.right.x);
+  chk('横屏左列约 30%（20%~40%）', (function(){ var r = L.right ? L.left.w / (L.left.w + L.right.w) : 0; return r >= 0.20 && r <= 0.40; })(), 'ratio=' + (L.left.w / (L.left.w + L.right.w)));
+  chk('无横向溢出', L.scrollW <= L.innerW + 1, 'scrollW=' + L.scrollW + ' innerW=' + L.innerW);
+  chk('底部栏不遮挡内容', L.content && L.floatingBar && L.content.bottom <= L.floatingBar.y + 4, 'content.bottom=' + L.content.bottom + ' bar.y=' + L.floatingBar.y);
+  chk('模块库在首屏内可见', L.palette && L.palette.bottom <= L.innerH + 1, 'palette.bottom=' + L.palette.bottom + ' innerH=' + L.innerH);
+  chk('拼接区与预览并排', L.blocksArea && L.sqlPreview && L.blocksArea.right <= L.sqlPreview.x + 1, 'blocksArea.right=' + L.blocksArea.right + ' preview.x=' + L.sqlPreview.x);
+  await c.screenshot('d1-landscape.png');
+
+  await c.setViewport(834, 1112);
+  await sleep(500);
+  const P = await c.evaluate(MEASURE);
+  console.log('  [portrait] innerW=' + P.innerW + ' innerH=' + P.innerH + ' scrollW=' + P.scrollW + ' scrollH=' + P.scrollH);
+  console.log('  [portrait] left=' + JSON.stringify(P.left) + ' right=' + JSON.stringify(P.right));
+  chk('竖屏回退纵向：右列在左列下方', P.left && P.right && P.right.y >= P.left.bottom - 1, 'right.y=' + P.right.y + ' left.bottom=' + P.left.bottom);
+  chk('竖屏无横向溢出', P.scrollW <= P.innerW + 1, 'scrollW=' + P.scrollW + ' innerW=' + P.innerW);
+  await c.screenshot('d1-portrait.png');
+
+  console.log('== 8. 积木拖动重排（布局变更后落点校验） ==');
+  await c.setViewport(1112, 834);
+  await sleep(400);
+  await c.evaluate(`window.SQLBlocksV4.setBlocks([{id:1,label:'SELECT',sql:'SELECT',type:'keyword'},{id:2,label:'name',sql:'name',type:'field'},{id:3,label:'FROM',sql:'FROM',type:'keyword'},{id:4,label:'students',sql:'students',type:'field'}])`);
+  await sleep(200);
+  const dragInfo = await c.evaluate(`(function(){
+    var bs=document.querySelectorAll('#blocksArea .block');
+    if(bs.length<4) return null;
+    var a=bs[0].getBoundingClientRect(); var last=bs[bs.length-1].getBoundingClientRect();
+    return {ax:Math.round(a.left+a.width/2), ay:Math.round(a.top+a.height/2), tx:Math.round(last.left+last.width+40), ty:Math.round(last.top+last.height/2)};
+  })()`);
+  if (dragInfo) {
+    await c.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: dragInfo.ax, y: dragInfo.ay, button: 'left', buttons: 1, clickCount: 1 });
+    await c.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: dragInfo.ax + 24, y: dragInfo.ay + 10, button: 'left', buttons: 1 });
+    await sleep(60);
+    await c.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: dragInfo.tx, y: dragInfo.ty, button: 'left', buttons: 1 });
+    await sleep(120);
+    await c.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: dragInfo.tx, y: dragInfo.ty, button: 'left', buttons: 0 });
+    await sleep(300);
+    const order = await c.evaluate(`window.SQLBlocksV4.getBlocks().map(function(b){return b.label;}).join(',')`);
+    chk('拖动后顺序变化（SELECT 移到末尾）', order === 'name,FROM,students,SELECT', order);
+    chk('无残留拖拽元素', await c.evaluate(`document.querySelectorAll('#blocksArea .dragging,#blocksArea .block-placeholder').length === 0`));
+  } else {
+    chk('拖动前积木就绪', false, 'blocks < 4');
+  }
+
   console.log('');
   const pass = results.filter((r) => r.ok).length;
   const fail = results.length - pass;
