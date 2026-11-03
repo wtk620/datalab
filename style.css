@@ -557,6 +557,7 @@ body.drawer-open { overflow: hidden; }
 
 /* 横屏 + 积木模式：左约 30%（题目/数据表/结果），右约 70%（积木工作台）；首屏不滚动、内部滚动 */
 @media (orientation: landscape) and (min-width: 700px) {
+  body.blocks-mode { padding-bottom: 0; }   /* 横屏积木模式高度已显式预留，去掉 body 底部 padding 避免多余页面滚动 */
   body.blocks-mode .content {
     max-width: none;
     display: flex;
