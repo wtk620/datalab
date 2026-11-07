@@ -73,7 +73,7 @@ console.log('== 1. 导出完整性（格式/版本/时间/应用版本/原始值
   t('format 正确', b.format === 'datalab-backup', b.format);
   t('schemaVersion = 2', b.schemaVersion === 2, String(b.schemaVersion));
   t('exportedAt 为合法时间', !isNaN(Date.parse(b.exportedAt)), b.exportedAt);
-  t('appVersion 读取自 DataLabData = 0.2.0', b.appVersion === '0.2.0', b.appVersion);
+  t('appVersion 读取自 DataLabData = 0.2.1', b.appVersion === '0.2.1', b.appVersion);
   t('raw 原样保留 6 键', jsonEqual(b.raw, seedState()), JSON.stringify(b.raw));
   t('parsed.currentExercise 为数字', b.parsed[K.currentExercise] === 2, String(b.parsed[K.currentExercise]));
   t('parsed.sql 为对象且含 3 个 id', b.parsed[K.sql] && Object.keys(b.parsed[K.sql]).length === 3);

@@ -304,7 +304,7 @@ window.DataLabData = (function () {
   ];
 
   return {
-    VERSION: '0.2.0',
+    VERSION: '0.2.1',
     SEED_STUDENTS: SEED_STUDENTS,
     SCHEMA: SCHEMA,
     CATEGORIES: CATEGORIES,

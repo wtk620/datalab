@@ -300,6 +300,22 @@ async function main() {
   await sleep(200);
   chk('清空后积木为空', await c.evaluate(`window.SQLBlocksV4.getSQL() === ''`));
 
+  console.log('== 6a. 自定义块编辑 / 复制 / 撤销 / 持久化 ==');
+  await c.evaluate(`window.SQLBlocksV4.setBlocks([{id:40,label:'性别',sql:"'男'",type:'text',custom:true,raw:"'男'"}]);document.querySelector('#blocksArea .block').click();document.getElementById('editSelBtn').click()`);
+  chk('编辑弹窗展示独立 label 与 SQL', await c.evaluate(`document.getElementById('customLabelInput').value==='性别' && document.getElementById('customInput').value==="'男'"`));
+  await c.evaluate(`document.getElementById('customLabelInput').value='女生';document.getElementById('customInput').value="'女'";document.getElementById('customLabelInput').dispatchEvent(new Event('input'));document.getElementById('customInput').dispatchEvent(new Event('input'))`);
+  chk('预览分别即时更新', await c.evaluate(`document.getElementById('customBlockPreview').textContent==='女生' && document.getElementById('customSqlPreview').textContent==="'女'"`));
+  await c.evaluate(`document.getElementById('customCancel').click()`);
+  chk('取消编辑原块不变', await c.evaluate(`window.SQLBlocksV4.getBlocks()[0].label==='性别' && window.SQLBlocksV4.getBlocks()[0].sql==="'男'"`));
+  await c.evaluate(`document.querySelector('#blocksArea .block').click();document.getElementById('editSelBtn').click();document.getElementById('customLabelInput').value='女生';document.getElementById('customInput').value="'女'";document.getElementById('customOk').click()`);
+  chk('保存编辑保留 ID 且 SQL 变化', await c.evaluate(`window.SQLBlocksV4.getBlocks()[0].id===40 && window.SQLBlocksV4.getSQL()==="'女'"`));
+  await c.evaluate(`document.getElementById('undoBtn').click()`);
+  chk('撤销编辑恢复原内容', await c.evaluate(`window.SQLBlocksV4.getBlocks()[0].label==='性别' && window.SQLBlocksV4.getSQL()==="'男'"`));
+  await c.evaluate(`document.querySelector('#blocksArea .block').click();document.getElementById('duplicateSelBtn').click()`);
+  chk('复制体新 ID 并插在原块后', await c.evaluate(`window.SQLBlocksV4.getBlocks().length===2 && window.SQLBlocksV4.getBlocks()[0].id!==window.SQLBlocksV4.getBlocks()[1].id`));
+  await c.evaluate(`document.getElementById('undoBtn').click()`);
+  chk('撤销复制移除副本', await c.evaluate(`window.SQLBlocksV4.getBlocks().length===1`));
+
   console.log('== 7. 横屏双栏布局 + 竖屏回退 + 截图 ==');
   const MEASURE = `(function(){
     function R(e){ if(!e) return null; var b=e.getBoundingClientRect(); return {x:Math.round(b.x),y:Math.round(b.y),w:Math.round(b.width),h:Math.round(b.height),right:Math.round(b.right),bottom:Math.round(b.bottom)}; }

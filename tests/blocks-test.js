@@ -68,6 +68,18 @@ console.log('== 5. 积木库覆盖 30 题所需语法关键字 ==');
   t('30 题关键字均在积木库', missing.length === 0, JSON.stringify(missing));
 })();
 
+console.log('== 5a. 自定义积木编辑字段校验 ==');
+t('label 与 SQL 可独立表达', B.validateCustomEdit('女生', "'女'", 'text') === '');
+t('空白 label 被拒绝', !!B.validateCustomEdit('  ', "'女'", 'text'));
+t('空白 SQL 被拒绝', !!B.validateCustomEdit('女生', '  ', 'text'));
+t('非法数字被拒绝', !!B.validateCustomEdit('数字', '12abc', 'number'));
+t('合法小数数字通过', B.validateCustomEdit('数字', '-12.5', 'number') === '');
+t('非法别名被拒绝', !!B.validateCustomEdit('别名', 'a b', 'alias'));
+t('合法别名通过', B.validateCustomEdit('别名', 'avg_score', 'alias') === '');
+t('SQL 单引号双写转义可通过', B.validateCustomEdit('文本', "'O''Brien'", 'text') === '');
+t('控制字符被拒绝', !!B.validateCustomEdit('label', 'x\u0001', 'raw'));
+t('复杂 raw 只做字段格式校验', B.validateCustomEdit('片段', 'ROUND(AVG(score), 1)', 'raw') === '');
+
 /* ---------- 判题一致性（需先加载 sql.js 引擎） ---------- */
 DB.load().then(function () {
   console.log('== 6. 积木 SQL 直接接入判题（与手写一致） ==');

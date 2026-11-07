@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#1f6feb">
-  <meta name="datalab-version" content="0.2.0">
+  <meta name="datalab-version" content="0.2.1">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="DataLab">
@@ -19,7 +19,7 @@
   <header class="topbar">
     <div class="brand">
       <span class="logo">DataLab</span>
-      <span class="ver" id="appVersion">Demo 0.2.0</span>
+      <span class="ver" id="appVersion">Demo 0.2.1</span>
     </div>
     <div class="top-right">
       <span id="engineStatus" class="engine-badge">引擎加载中…</span>
@@ -98,6 +98,7 @@
               <button id="insertNewlineBtn" class="bm-btn" type="button">↵ 换行</button>
               <button id="deleteSelBtn" class="bm-btn bm-danger" type="button" disabled>删除</button>
               <button id="editSelBtn" class="bm-btn" type="button" disabled>编辑</button>
+              <button id="duplicateSelBtn" class="bm-btn" type="button" disabled>复制</button>
             </div>
             <div class="blocks-area" id="blocksArea" aria-label="SQL 积木拼接区"></div>
             <div class="bm-foot">按住积木拖动排序 · 点按选中 · 拖动靠近上下边缘可自动滚动。</div>
@@ -225,10 +226,13 @@
         <button data-type="raw" type="button">SQL 片段</button>
       </div>
       <div class="modal-body">
+        <label class="modal-label" for="customLabelInput">显示文字</label>
+        <input id="customLabelInput" type="text" maxlength="120" autocomplete="off" spellcheck="false" placeholder="积木表面显示内容">
         <label class="modal-label" for="customInput" id="customInputLabel">数值</label>
-        <input id="customInput" type="text" autocomplete="off" spellcheck="false" placeholder="例如 90">
+        <textarea id="customInput" maxlength="2000" rows="3" autocomplete="off" spellcheck="false" placeholder="实际 SQL 内容"></textarea>
         <div class="modal-hint" id="customHint"></div>
-        <div class="modal-preview">生成 SQL：<code id="customSqlPreview">—</code></div>
+        <div class="modal-preview">积木预览：<span class="block-preview" id="customBlockPreview">—</span></div>
+        <div class="modal-preview">实际 SQL：<code id="customSqlPreview">—</code></div>
       </div>
       <div class="modal-actions">
         <button id="customCancel" class="bm-btn" type="button">取消</button>

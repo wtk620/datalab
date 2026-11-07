@@ -250,6 +250,7 @@
     var ds = $('deleteSelBtn'); if (ds) { ds.disabled = idx < 0; }
     var sel = idx >= 0 ? list[idx] : null;
     var es = $('editSelBtn'); if (es) { es.disabled = !(sel && sel.custom); }
+    var cp = $('duplicateSelBtn'); if (cp) { cp.disabled = !(sel && sel.custom); }
   }
 
   function setSelected(id) {
@@ -365,6 +366,7 @@
   /* ---------- 自定义模块 ---------- */
   var customType = 'number';
   var customEditId = null;
+  var customDraft = null;
 
   function generateCustomBlock(type, value) {
     var raw = String(value).trim();
@@ -405,20 +407,30 @@
   }
 
   function updateCustomPreview() {
-    var gen = generateCustomBlock(customType, $('customInput').value);
-    var p = $('customSqlPreview'); if (p) { p.textContent = gen && !gen.error ? gen.sql : '—'; }
+    var sql = $('customInput').value;
+    var label = $('customLabelInput').value;
+    if (!customEditId && !label && sql) {
+      var generated = generateCustomBlock(customType, sql);
+      if (generated && !generated.error) { label = generated.label; $('customLabelInput').value = label; }
+    }
+    var p = $('customSqlPreview'); if (p) { p.textContent = sql || '—'; }
+    var bp = $('customBlockPreview'); if (bp) { bp.textContent = label || '—'; bp.dataset.type = customType; }
   }
 
   function openCustomModal(editId) {
     customEditId = editId || null;
     var b = editId != null ? blocks().find(function (x) { return x.id === editId; }) : null;
+    customDraft = b ? cloneBlock(b) : null;
     if ($('customModalTitle')) { $('customModalTitle').textContent = b ? '编辑自定义模块' : '＋ 自定义模块'; }
     if ($('customOk')) { $('customOk').textContent = b ? '保存' : '添加'; }
+    $('customTabs').classList.toggle('hidden', !!b);
     if (b) {
       customType = b.type;
-      $('customInput').value = b.raw != null ? b.raw : b.sql;
+      $('customLabelInput').value = b.label;
+      $('customInput').value = b.sql;
     } else {
       customType = 'number';
+      $('customLabelInput').value = '';
       $('customInput').value = '';
     }
     setCustomType(customType);
@@ -429,26 +441,46 @@
   function closeCustomModal() {
     $('customModal').classList.add('hidden');
     customEditId = null;
+    customDraft = null;
+    var area = $('blocksArea');
+    if (area && state.selectedId != null) { var selected = blockElement(state.selectedId); if (selected) { selected.focus(); } }
+  }
+
+  function validateCustomEdit(label, sql, type) {
+    if (!label.trim() || !sql.trim()) { return '显示文字和 SQL 内容都不能为空。'; }
+    if (label.length > 120 || sql.length > 2000) { return '显示文字最多 120 个字符，SQL 最多 2000 个字符。'; }
+    if (/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(label) || /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(sql)) { return '内容不能包含控制字符。'; }
+    if (type === 'number' && !/^-?(?:\d+\.?\d*|\.\d+)$/.test(sql.trim())) { return '数字类型请输入有效数字。'; }
+    if (type === 'alias' && !/^[\p{L}_][\p{L}\p{N}_]*$/u.test(sql.trim())) { return '别名需以字母、下划线或汉字开头，并仅包含字母、数字、下划线或汉字。'; }
+    if (type === 'text' && !(sql.trim().length >= 2 && sql.trim().charAt(0) === "'" && sql.trim().charAt(sql.trim().length - 1) === "'")) { return '文本 SQL 请使用单引号包裹，内部单引号用两个单引号转义。'; }
+    return '';
   }
 
   function customOk() {
-    var gen = generateCustomBlock(customType, $('customInput').value);
-    if (!gen) { closeCustomModal(); return; }
-    if (gen.error) {
-      var h = $('customHint');
-      h.textContent = gen.error;
+    var label = $('customLabelInput').value;
+    var sql = $('customInput').value;
+    var validation = customEditId != null ? validateCustomEdit(label, sql, customType) : '';
+    if (validation) {
+      var h = $('customHint'); h.textContent = validation;
       h.classList.add('warn');
       return;
     }
     if (customEditId != null) {
-      pushUndo();
       var b = blocks().find(function (x) { return x.id === customEditId; });
-      if (b) { b.label = gen.label; b.sql = gen.sql; b.type = gen.type; b.raw = gen.raw; b.title = gen.sql; }
+      if (b && (b.label !== label || b.sql !== sql)) {
+        pushUndo(); b.label = label; b.sql = sql; b.raw = sql; b.title = label;
+      }
       state.selectedId = customEditId;
       renderBlocks();
     } else {
+      var gen = generateCustomBlock(customType, $('customInput').value);
+      if (!gen || gen.error) { var hint = $('customHint'); hint.textContent = gen && gen.error || '请输入内容。'; hint.classList.add('warn'); return; }
+      label = label || gen.label;
+      sql = gen.sql;
+      validation = validateCustomEdit(label, sql, customType);
+      if (validation) { var h2 = $('customHint'); h2.textContent = validation; h2.classList.add('warn'); return; }
       pushUndo();
-      var nb = makeBlock({ label: gen.label, sql: gen.sql, type: gen.type, raw: gen.raw, custom: true });
+      var nb = makeBlock({ label: label, sql: sql, type: customType, raw: gen.raw != null ? gen.raw : sql, custom: true });
       var list = blocks();
       var idx = state.selectedId != null ? list.findIndex(function (x) { return x.id === state.selectedId; }) : -1;
       if (idx >= 0) { list.splice(idx + 1, 0, nb); } else { list.push(nb); }
@@ -456,6 +488,20 @@
       renderBlocks();
     }
     closeCustomModal();
+  }
+
+  function duplicateSelected() {
+    var idx = blocks().findIndex(function (b) { return b.id === state.selectedId; });
+    if (idx < 0 || !blocks()[idx].custom) { return; }
+    pushUndo();
+    var source = cloneBlock(blocks()[idx]);
+    var used = new Set(blocks().map(function (b) { return String(b.id); }));
+    var id = state.nextBlockId++;
+    while (used.has(String(id))) { id = state.nextBlockId++; }
+    source.id = id;
+    blocks().splice(idx + 1, 0, source);
+    state.selectedId = id;
+    renderBlocks();
   }
 
   /* ---------- 拖动引擎（与 V4.1 一致） ---------- */
@@ -668,7 +714,7 @@
     if (state.drag) { return; }
     var block = e.target.closest('.block');
     if (!block) { return; }
-    if (e.target.closest('.block-del')) { return; }
+    if (e.target.closest('button')) { return; }
     var x = e.clientX, y = e.clientY;
     state.press = {
       id: Number(block.dataset.id), el: block, pointerId: e.pointerId,
@@ -755,11 +801,13 @@
     var inb = $('insertNewlineBtn'); if (inb) { inb.addEventListener('click', insertNewline); }
     var ds = $('deleteSelBtn'); if (ds) { ds.addEventListener('click', function () { if (state.selectedId != null) { deleteBlock(state.selectedId); } }); }
     var es = $('editSelBtn'); if (es) { es.addEventListener('click', function () { if (state.selectedId != null) { openCustomModal(state.selectedId); } }); }
+    var dup = $('duplicateSelBtn'); if (dup) { dup.addEventListener('click', duplicateSelected); }
     var cs = $('copySqlBtn'); if (cs) { cs.addEventListener('click', copySql); }
     var cb = $('customBtn'); if (cb) { cb.addEventListener('click', function () { openCustomModal(null); }); }
 
     var ct = $('customTabs'); if (ct) { ct.addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) { setCustomType(b.dataset.type); } }); }
     var ci = $('customInput'); if (ci) { ci.addEventListener('input', updateCustomPreview); ci.addEventListener('keydown', function (e) { if (e.key === 'Enter') { customOk(); } }); }
+    var cli = $('customLabelInput'); if (cli) { cli.addEventListener('input', updateCustomPreview); }
     var cok = $('customOk'); if (cok) { cok.addEventListener('click', customOk); }
     var ccan = $('customCancel'); if (ccan) { ccan.addEventListener('click', closeCustomModal); }
     var cm = $('customModal'); if (cm) { cm.addEventListener('click', function (e) { if (e.target === cm) { closeCustomModal(); } }); }
@@ -788,6 +836,7 @@
     addBlock: function (spec) { addBlockFromPalette(spec); },
     clear: function () { clearBlocks(); },
     buildSql: buildSql,
+    validateCustomEdit: validateCustomEdit,
     palette: PALETTE,
     onChange: function (cb) { state.listeners.push(cb); }
   };
